@@ -12,7 +12,8 @@ interface DayCellProps {
   customHolidays?: CustomHoliday[];
   dayNotes?: DayNote[];
   onDayClick: (date: Date) => void;
-  showHolidays?: boolean;
+  showUSHolidays?: boolean;
+  showIndiaHolidays?: boolean;
   showLongWeekends?: boolean;
   showPastDatesAsGray?: boolean;
 }
@@ -23,7 +24,8 @@ export default function DayCell({
   onDayClick,
   customHolidays = [],
   dayNotes = [],
-  showHolidays = true,
+  showUSHolidays = true,
+  showIndiaHolidays = true,
   showLongWeekends = true,
   showPastDatesAsGray = true,
 }: DayCellProps) {
@@ -37,11 +39,11 @@ export default function DayCell({
   today.setHours(0, 0, 0, 0);
   const isPast = date < today;
 
-  // Holiday checks - only if showHolidays is enabled
-  const isHolidayDay = showHolidays && isHoliday(date, customHolidays);
-  const isExtendedWeekendDay = showLongWeekends && isExtendedWeekend(date, customHolidays);
-  const holidayName = showHolidays ? getHolidayName(date, customHolidays) : null;
-  const extendedWeekendName = showLongWeekends ? getExtendedWeekendHolidayName(date, customHolidays) : null;
+  // Holiday checks - only if enabled
+  const isHolidayDay = isHoliday(date, customHolidays, showUSHolidays, showIndiaHolidays);
+  const isExtendedWeekendDay = showLongWeekends && isExtendedWeekend(date, customHolidays, showUSHolidays, showIndiaHolidays);
+  const holidayName = getHolidayName(date, customHolidays, showUSHolidays, showIndiaHolidays);
+  const extendedWeekendName = showLongWeekends ? getExtendedWeekendHolidayName(date, customHolidays, showUSHolidays, showIndiaHolidays) : null;
 
   // Check for day note highlight
   const dayNote = dayNotes.find(n => n.date === dateStr);

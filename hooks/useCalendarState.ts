@@ -29,8 +29,10 @@ export interface CalendarState {
     // Display options
     showPastDatesAsGray: boolean;
     setShowPastDatesAsGray: (show: boolean) => void;
-    showHolidays: boolean;
-    setShowHolidays: (show: boolean) => void;
+    showUSHolidays: boolean;
+    setShowUSHolidays: (show: boolean) => void;
+    showIndiaHolidays: boolean;
+    setShowIndiaHolidays: (show: boolean) => void;
     showLongWeekends: boolean;
     setShowLongWeekends: (show: boolean) => void;
 }
@@ -60,7 +62,8 @@ export function useCalendarState(): CalendarState {
 
     // Display options state
     const [showPastDatesAsGray, setShowPastDatesAsGray] = useState(true);
-    const [showHolidays, setShowHolidays] = useState(true);
+    const [showUSHolidays, setShowUSHolidays] = useState(true);
+    const [showIndiaHolidays, setShowIndiaHolidays] = useState(true);
     const [showLongWeekends, setShowLongWeekends] = useState(true);
 
     return {
@@ -87,8 +90,10 @@ export function useCalendarState(): CalendarState {
         // Display options
         showPastDatesAsGray,
         setShowPastDatesAsGray,
-        showHolidays,
-        setShowHolidays,
+        showUSHolidays,
+        setShowUSHolidays,
+        showIndiaHolidays,
+        setShowIndiaHolidays,
         showLongWeekends,
         setShowLongWeekends,
     };

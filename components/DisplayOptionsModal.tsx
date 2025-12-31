@@ -7,8 +7,10 @@ interface DisplayOptionsModalProps {
     onClose: () => void;
     showPastDatesAsGray: boolean;
     setShowPastDatesAsGray: (show: boolean) => void;
-    showHolidays: boolean;
-    setShowHolidays: (show: boolean) => void;
+    showUSHolidays: boolean;
+    setShowUSHolidays: (show: boolean) => void;
+    showIndiaHolidays: boolean;
+    setShowIndiaHolidays: (show: boolean) => void;
     showLongWeekends: boolean;
     setShowLongWeekends: (show: boolean) => void;
 }
@@ -18,8 +20,10 @@ export default function DisplayOptionsModal({
     onClose,
     showPastDatesAsGray,
     setShowPastDatesAsGray,
-    showHolidays,
-    setShowHolidays,
+    showUSHolidays,
+    setShowUSHolidays,
+    showIndiaHolidays,
+    setShowIndiaHolidays,
     showLongWeekends,
     setShowLongWeekends,
 }: DisplayOptionsModalProps) {
@@ -102,20 +106,38 @@ export default function DisplayOptionsModal({
                     <div className="border-t border-neutral-100 pt-4">
                         <p className="text-xs text-stone-400 font-light uppercase tracking-wider mb-3">Show on calendar</p>
 
-                        {/* Holidays Toggle */}
+                        {/* India Holidays Toggle */}
                         <label className="flex items-center justify-between cursor-pointer py-2">
                             <div className="flex items-center space-x-3">
                                 <div className="w-3 h-3 rounded-sm bg-red-500"></div>
-                                <span className="text-stone-700 font-light">Holidays</span>
+                                <span className="text-stone-700 font-light">Indian Holidays</span>
                             </div>
                             <button
-                                onClick={() => setShowHolidays(!showHolidays)}
-                                className={`relative w-11 h-6 rounded-full transition-colors ${showHolidays ? 'bg-stone-800' : 'bg-stone-200'
+                                onClick={() => setShowIndiaHolidays(!showIndiaHolidays)}
+                                className={`relative w-11 h-6 rounded-full transition-colors ${showIndiaHolidays ? 'bg-stone-800' : 'bg-stone-200'
                                     }`}
                             >
                                 <div
                                     className="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-all"
-                                    style={{ left: showHolidays ? 'auto' : '2px', right: showHolidays ? '2px' : 'auto' }}
+                                    style={{ left: showIndiaHolidays ? 'auto' : '2px', right: showIndiaHolidays ? '2px' : 'auto' }}
+                                />
+                            </button>
+                        </label>
+
+                        {/* US Holidays Toggle */}
+                        <label className="flex items-center justify-between cursor-pointer py-2">
+                            <div className="flex items-center space-x-3">
+                                <div className="w-3 h-3 rounded-sm bg-red-500"></div>
+                                <span className="text-stone-700 font-light">US Holidays</span>
+                            </div>
+                            <button
+                                onClick={() => setShowUSHolidays(!showUSHolidays)}
+                                className={`relative w-11 h-6 rounded-full transition-colors ${showUSHolidays ? 'bg-stone-800' : 'bg-stone-200'
+                                    }`}
+                            >
+                                <div
+                                    className="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-all"
+                                    style={{ left: showUSHolidays ? 'auto' : '2px', right: showUSHolidays ? '2px' : 'auto' }}
                                 />
                             </button>
                         </label>

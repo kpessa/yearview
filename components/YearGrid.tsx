@@ -14,7 +14,8 @@ interface YearGridProps {
   dayNotes?: DayNote[];
   onDayClick: (date: Date) => void;
   onEventClick: (event: Event) => void;
-  showHolidays?: boolean;
+  showUSHolidays?: boolean;
+  showIndiaHolidays?: boolean;
   showLongWeekends?: boolean;
   showPastDatesAsGray?: boolean;
 }
@@ -28,7 +29,8 @@ export default function YearGrid({
   dayNotes = [],
   onDayClick,
   onEventClick,
-  showHolidays = true,
+  showUSHolidays = true,
+  showIndiaHolidays = true,
   showLongWeekends = true,
   showPastDatesAsGray = true,
 }: YearGridProps) {
@@ -126,7 +128,8 @@ export default function YearGrid({
                       customHolidays={customHolidays}
                       dayNotes={dayNotes}
                       onDayClick={onDayClick}
-                      showHolidays={showHolidays}
+                      showUSHolidays={showUSHolidays}
+                      showIndiaHolidays={showIndiaHolidays}
                       showLongWeekends={showLongWeekends}
                       showPastDatesAsGray={showPastDatesAsGray}
                     />

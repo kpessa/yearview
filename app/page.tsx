@@ -67,7 +67,8 @@ function CalendarApp() {
             dayNotes={dayNotes}
             onDayClick={actions.handleDayClick}
             onEventClick={actions.handleEditEvent}
-            showHolidays={state.showHolidays}
+            showUSHolidays={state.showUSHolidays}
+            showIndiaHolidays={state.showIndiaHolidays}
             showLongWeekends={state.showLongWeekends}
             showPastDatesAsGray={state.showPastDatesAsGray}
           />
@@ -113,8 +114,10 @@ function CalendarApp() {
         onClose={() => state.setIsDisplayOptionsOpen(false)}
         showPastDatesAsGray={state.showPastDatesAsGray}
         setShowPastDatesAsGray={state.setShowPastDatesAsGray}
-        showHolidays={state.showHolidays}
-        setShowHolidays={state.setShowHolidays}
+        showUSHolidays={state.showUSHolidays}
+        setShowUSHolidays={state.setShowUSHolidays}
+        showIndiaHolidays={state.showIndiaHolidays}
+        setShowIndiaHolidays={state.setShowIndiaHolidays}
         showLongWeekends={state.showLongWeekends}
         setShowLongWeekends={state.setShowLongWeekends}
       />
