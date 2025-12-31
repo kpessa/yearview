@@ -152,7 +152,7 @@ function AuthScreen() {
             </svg>
           </div>
           <h1 className="text-4xl font-light tracking-tight text-stone-700 mb-2">
-            Annual Calendar
+            YearView
           </h1>
           <p className="text-stone-500 font-light">Plan your year beautifully</p>
         </div>

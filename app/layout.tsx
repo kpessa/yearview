@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Annual Calendar - Plan Your Year Beautifully",
+  title: "YearView - Plan Your Year Beautifully",
   description: "A gorgeous annual calendar to visualize and organize your entire year",
 };
 

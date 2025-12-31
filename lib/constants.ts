@@ -11,7 +11,7 @@ export const DATE_FORMAT = 'YYYY-MM-DD';
 
 // UI text
 export const UI_TEXT = {
-    APP_NAME: 'Annual Calendar',
+    APP_NAME: 'YearView',
     APP_TAGLINE: 'Plan your year beautifully',
 
     // Modal titles

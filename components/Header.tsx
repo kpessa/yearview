@@ -60,7 +60,7 @@ export default function Header({
                 </svg>
               </div>
               <h1 className="text-2xl font-normal tracking-tight text-neutral-900">
-                Annual Calendar
+                YearView
               </h1>
             </div>
 
