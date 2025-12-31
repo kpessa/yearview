@@ -1,7 +1,8 @@
 'use client';
 
 import { Event, Category } from '@/lib/instant';
-import { getDayOfWeek, getMonthName } from '@/lib/dateUtils';
+import { getDayOfWeek, getMonthName, formatDate } from '@/lib/dateUtils';
+import { getHolidayName, isExtendedWeekend, getExtendedWeekendHolidayName } from '@/lib/holidays';
 import { useFocusTrap } from '@/hooks/useAccessibility';
 
 interface DayDetailModalProps {
@@ -31,6 +32,11 @@ export default function DayDetailModal({
   const dayOfWeek = getDayOfWeek(date);
   const monthName = getMonthName(date.getMonth());
 
+  // Holiday info
+  const holidayName = getHolidayName(date);
+  const isExtendedWeekendDay = isExtendedWeekend(date);
+  const extendedWeekendName = getExtendedWeekendHolidayName(date);
+
   return (
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center bg-black/20 backdrop-blur-sm"
@@ -49,6 +55,16 @@ export default function DayDetailModal({
                 {monthName} {date.getDate()}, {date.getFullYear()}
               </h2>
               <p className="text-stone-500 mt-1 font-light">{dayOfWeek}</p>
+              {holidayName && (
+                <div className="mt-2 inline-flex items-center px-3 py-1 bg-red-100 text-red-700 rounded-full text-sm font-medium">
+                  🎉 {holidayName}
+                </div>
+              )}
+              {!holidayName && isExtendedWeekendDay && extendedWeekendName && (
+                <div className="mt-2 inline-flex items-center px-3 py-1 bg-red-50 text-red-600 rounded-full text-sm font-medium">
+                  🗓️ {extendedWeekendName}
+                </div>
+              )}
             </div>
             <button
               onClick={onClose}
