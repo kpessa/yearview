@@ -2,7 +2,7 @@
 
 A beautiful annual calendar app to visualize and organize your entire year. Built with Next.js, InstantDB, and Tailwind CSS.
 
-![YearView Screenshot](https://via.placeholder.com/800x400?text=YearView+Screenshot)
+![YearView Screenshot](/screenshot.png)
 
 ## Features
 
