@@ -24,3 +24,26 @@ export type CategoryColor = typeof CATEGORY_COLORS[number];
 export function getColorByValue(value: string): CategoryColor | undefined {
   return CATEGORY_COLORS.find(color => color.value === value);
 }
+
+export function normalizeOpacity(value?: number, fallback: number = 1): number {
+  if (typeof value !== 'number' || Number.isNaN(value)) return fallback;
+  return Math.min(1, Math.max(0.1, value));
+}
+
+export function toRgba(hex: string, opacity: number): string {
+  const normalizedOpacity = Math.min(1, Math.max(0, opacity));
+  const sanitized = hex.replace('#', '').trim();
+  const isShort = sanitized.length === 3;
+  const normalizedHex = isShort
+    ? sanitized.split('').map(ch => ch + ch).join('')
+    : sanitized;
+
+  if (normalizedHex.length !== 6) {
+    return `rgba(0, 0, 0, ${normalizedOpacity})`;
+  }
+
+  const r = parseInt(normalizedHex.slice(0, 2), 16);
+  const g = parseInt(normalizedHex.slice(2, 4), 16);
+  const b = parseInt(normalizedHex.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${normalizedOpacity})`;
+}

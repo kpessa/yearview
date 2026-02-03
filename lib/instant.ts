@@ -8,6 +8,7 @@ export type Category = {
   id: string;
   name: string;
   color: string;
+  opacity?: number;
   userId: string;
   createdAt: number;
 };

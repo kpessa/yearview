@@ -79,6 +79,7 @@ export function useCalendarActions(
                     (db.tx as any).categories[categoryData.id].update({
                         name: categoryData.name!,
                         color: categoryData.color!,
+                        opacity: categoryData.opacity ?? 1,
                     })
                 );
                 showToast('Category updated successfully', 'success');
@@ -88,6 +89,7 @@ export function useCalendarActions(
                     id: uuidv4(),
                     name: categoryData.name!,
                     color: categoryData.color!,
+                    opacity: categoryData.opacity ?? 1,
                     userId: user.id,
                     createdAt: Date.now(),
                 };
@@ -219,6 +221,7 @@ export function useCalendarActions(
             id: uuidv4(),
             name: GOOGLE_CALENDAR_CATEGORY_NAME,
             color: GOOGLE_CALENDAR_COLOR,
+            opacity: 1,
             userId: user.id,
             createdAt: Date.now(),
         };

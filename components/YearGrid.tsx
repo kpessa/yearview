@@ -2,6 +2,7 @@
 
 import { Event, Category, CustomHoliday, DayNote } from '@/lib/instant';
 import { getAllDatesInYear, formatDate, getMonthName, parseDateString } from '@/lib/dateUtils';
+import { normalizeOpacity, toRgba } from '@/lib/colors';
 import DayCell from './DayCell';
 import { useMemo } from 'react';
 
@@ -145,6 +146,7 @@ export default function YearGrid({
                 {monthEvents.map((event, idx) => {
                   const category = categories.find(c => c.id === event.categoryId);
                   if (!category) return null;
+                  const categoryOpacity = normalizeOpacity(category.opacity);
 
                   const leftPercent = ((event.startDay - 1) / 31) * 100;
                   const widthPercent = (event.span / 31) * 100;
@@ -161,7 +163,7 @@ export default function YearGrid({
                         left: `${leftPercent}%`,
                         width: `${widthPercent}%`,
                         top: `${20 + (idx * 20)}px`,
-                        backgroundColor: category.color,
+                        backgroundColor: toRgba(category.color, categoryOpacity),
                         color: 'white',
                       }}
                       title={event.title}
@@ -178,4 +180,3 @@ export default function YearGrid({
     </div>
   );
 }
-
