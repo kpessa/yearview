@@ -3,11 +3,11 @@
 import AuthWrapper from '@/components/AuthWrapper';
 import Header from '@/components/Header';
 import YearGrid from '@/components/YearGrid';
+import CardWeekGrid from '@/components/CardWeekGrid';
 import EventModal from '@/components/EventModal';
 import CategoryModal from '@/components/CategoryModal';
 import DayDetailModal from '@/components/DayDetailModal';
 import DisplayOptionsModal from '@/components/DisplayOptionsModal';
-import GoogleCalendarSync from '@/components/GoogleCalendarSync';
 import { CalendarSkeleton } from '@/components/Skeleton';
 import { ToastProvider } from '@/contexts/ToastContext';
 import {
@@ -43,6 +43,10 @@ function CalendarApp() {
         onEditCategory={actions.handleEditCategory}
         onAddEvent={actions.handleAddEvent}
         onOpenDisplayOptions={() => state.setIsDisplayOptionsOpen(true)}
+        viewMode={state.viewMode}
+        onViewModeChange={state.setViewMode}
+        selectedQuarter={state.selectedQuarter}
+        onQuarterChange={state.setSelectedQuarter}
 
         // Google Calendar Props
         onImportEvents={actions.handleImportGoogleEvents}
@@ -58,20 +62,38 @@ function CalendarApp() {
         {isLoading ? (
           <CalendarSkeleton />
         ) : (
-          <YearGrid
-            year={state.selectedYear}
-            events={events}
-            categories={categories}
-            visibleCategoryIds={state.visibleCategoryIds}
-            customHolidays={customHolidays}
-            dayNotes={dayNotes}
-            onDayClick={actions.handleDayClick}
-            onEventClick={actions.handleEditEvent}
-            showUSHolidays={state.showUSHolidays}
-            showIndiaHolidays={state.showIndiaHolidays}
-            showLongWeekends={state.showLongWeekends}
-            showPastDatesAsGray={state.showPastDatesAsGray}
-          />
+          state.viewMode === 'cards' ? (
+            <CardWeekGrid
+              year={state.selectedYear}
+              events={events}
+              categories={categories}
+              visibleCategoryIds={state.visibleCategoryIds}
+              customHolidays={customHolidays}
+              dayNotes={dayNotes}
+              onDayClick={actions.handleDayClick}
+              onEventClick={actions.handleEditEvent}
+              showUSHolidays={state.showUSHolidays}
+              showIndiaHolidays={state.showIndiaHolidays}
+              showLongWeekends={state.showLongWeekends}
+              showPastDatesAsGray={state.showPastDatesAsGray}
+              quarter={state.selectedQuarter}
+            />
+          ) : (
+            <YearGrid
+              year={state.selectedYear}
+              events={events}
+              categories={categories}
+              visibleCategoryIds={state.visibleCategoryIds}
+              customHolidays={customHolidays}
+              dayNotes={dayNotes}
+              onDayClick={actions.handleDayClick}
+              onEventClick={actions.handleEditEvent}
+              showUSHolidays={state.showUSHolidays}
+              showIndiaHolidays={state.showIndiaHolidays}
+              showLongWeekends={state.showLongWeekends}
+              showPastDatesAsGray={state.showPastDatesAsGray}
+            />
+          )
         )}
       </main>
 

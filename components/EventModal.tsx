@@ -30,6 +30,8 @@ export default function EventModal({
   const [description, setDescription] = useState('');
   const [date, setDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [startTime, setStartTime] = useState('');
+  const [endTime, setEndTime] = useState('');
   const [categoryId, setCategoryId] = useState('');
 
   // Focus trap must be called unconditionally to maintain hook order
@@ -41,18 +43,24 @@ export default function EventModal({
       setDescription(event.description || '');
       setDate(event.date);
       setEndDate(event.endDate || '');
+      setStartTime(event.startTime || '');
+      setEndTime(event.endTime || '');
       setCategoryId(event.categoryId);
     } else if (selectedDate) {
       setDate(formatDate(selectedDate));
       setTitle('');
       setDescription('');
       setEndDate('');
+      setStartTime('');
+      setEndTime('');
       setCategoryId(categories[0]?.id || '');
     } else {
       setTitle('');
       setDescription('');
       setDate('');
       setEndDate('');
+      setStartTime('');
+      setEndTime('');
       setCategoryId(categories[0]?.id || '');
     }
   }, [event, selectedDate, categories, isOpen]);
@@ -73,12 +81,19 @@ export default function EventModal({
       return;
     }
 
+    if (endTime && startTime && endTime < startTime) {
+      showToast('End time must be after start time', 'warning');
+      return;
+    }
+
     onSave({
       id: event?.id,
       title: title.trim(),
       description: description.trim(),
       date,
       endDate: endDate || undefined,
+      startTime: startTime || undefined,
+      endTime: endTime || undefined,
       categoryId,
     });
 
@@ -178,6 +193,34 @@ export default function EventModal({
               className="w-full px-4 py-3 rounded-xl border border-neutral-200 focus:ring-1 focus:ring-neutral-300 focus:border-transparent outline-none transition-all text-stone-700 font-light bg-white/50"
             />
             <p className="text-xs text-stone-400 mt-1 font-light">Leave empty for single-day events</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="startTime" className="block text-sm font-light text-stone-600 mb-2">
+                Start Time (Optional)
+              </label>
+              <input
+                type="time"
+                id="startTime"
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl border border-neutral-200 focus:ring-1 focus:ring-neutral-300 focus:border-transparent outline-none transition-all text-stone-700 font-light bg-white/50"
+              />
+            </div>
+            <div>
+              <label htmlFor="endTime" className="block text-sm font-light text-stone-600 mb-2">
+                End Time (Optional)
+              </label>
+              <input
+                type="time"
+                id="endTime"
+                value={endTime}
+                onChange={(e) => setEndTime(e.target.value)}
+                min={startTime || undefined}
+                className="w-full px-4 py-3 rounded-xl border border-neutral-200 focus:ring-1 focus:ring-neutral-300 focus:border-transparent outline-none transition-all text-stone-700 font-light bg-white/50"
+              />
+            </div>
           </div>
 
           <div>

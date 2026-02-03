@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 
 import { Event, Category, CustomHoliday, DayNote } from '@/lib/instant';
 import { getDayOfWeek, getMonthName, formatDate } from '@/lib/dateUtils';
+import { formatTimeRange, sortEventsByTime } from '@/lib/eventUtils';
 import { getHolidayName, isExtendedWeekend, getExtendedWeekendHolidayName } from '@/lib/holidays';
 import { useFocusTrap } from '@/hooks/useAccessibility';
 
@@ -128,6 +129,7 @@ export default function DayDetailModal({
   if (!isOpen || !date) return null;
 
   const categoryMap = new Map(categories.map(cat => [cat.id, cat]));
+  const sortedEvents = sortEventsByTime(events);
   const dayOfWeek = getDayOfWeek(date);
   const monthName = getMonthName(date.getMonth());
 
@@ -299,7 +301,7 @@ export default function DayDetailModal({
             </div>
           ) : (
             <div className="space-y-3">
-              {events.map((event) => {
+              {sortedEvents.map((event) => {
                 const category = categoryMap.get(event.categoryId);
                 return (
                   <div
@@ -329,7 +331,7 @@ export default function DayDetailModal({
                           </span>
                         </div>
                         <h3 className="text-lg font-light text-stone-700 mb-1">
-                          {event.title}
+                          {formatTimeRange(event)} {event.title}
                           {event.endDate && event.endDate !== event.date && (
                             <span className="text-xs text-stone-400 ml-2">
                               → {new Date(event.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}

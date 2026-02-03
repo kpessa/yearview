@@ -124,6 +124,89 @@ export function isToday(date: Date): boolean {
  */
 export const parseDate = parseDateString;
 
+export interface WeekInYear {
+  start: Date;
+  end: Date;
+  dates: Date[];
+}
+
+/**
+ * Get the start of the week for a date (local time)
+ * weekStartsOn: 0 = Sunday, 1 = Monday, etc.
+ */
+export function getWeekStart(date: Date, weekStartsOn = 0): Date {
+  const local = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const day = local.getDay();
+  const diff = (day - weekStartsOn + 7) % 7;
+  local.setDate(local.getDate() - diff);
+  return local;
+}
+
+/**
+ * Get all weeks in a year (local time)
+ */
+export function getWeeksInYear(year: number, weekStartsOn = 0): WeekInYear[] {
+  const yearStart = new Date(year, 0, 1);
+  const yearEnd = new Date(year, 11, 31);
+
+  const startOfFirstWeek = getWeekStart(yearStart, weekStartsOn);
+  const startOfLastWeek = getWeekStart(yearEnd, weekStartsOn);
+  const endOfLastWeek = new Date(startOfLastWeek);
+  endOfLastWeek.setDate(endOfLastWeek.getDate() + 6);
+
+  const weeks: WeekInYear[] = [];
+  for (let cursor = new Date(startOfFirstWeek); cursor <= endOfLastWeek; ) {
+    const weekStart = new Date(cursor);
+    const dates: Date[] = [];
+    for (let i = 0; i < 7; i++) {
+      dates.push(new Date(cursor));
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    const weekEnd = dates[dates.length - 1];
+    weeks.push({ start: weekStart, end: weekEnd, dates });
+  }
+
+  return weeks;
+}
+
+/**
+ * Get the week index within a year (1-based)
+ */
+export function getWeekIndex(date: Date, weekStartsOn = 0): number {
+  const yearStart = new Date(date.getFullYear(), 0, 1);
+  const yearStartWeek = getWeekStart(yearStart, weekStartsOn);
+  const dateWeekStart = getWeekStart(date, weekStartsOn);
+  const diffMs = dateWeekStart.getTime() - yearStartWeek.getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  return Math.floor(diffDays / 7) + 1;
+}
+
+/**
+ * Get the quarter for a date (1..4)
+ */
+export function getQuarterForDate(date: Date): 1 | 2 | 3 | 4 {
+  const month = date.getMonth();
+  return (Math.floor(month / 3) + 1) as 1 | 2 | 3 | 4;
+}
+
+/**
+ * Get the suit symbol for a quarter
+ */
+export function getSuitForQuarter(quarter: 1 | 2 | 3 | 4): string {
+  switch (quarter) {
+    case 1:
+      return '♠';
+    case 2:
+      return '♥';
+    case 3:
+      return '♣';
+    case 4:
+      return '♦';
+    default:
+      return '♠';
+  }
+}
+
 /**
  * Group dates by month
  */
@@ -148,4 +231,3 @@ export function formatDateForDisplay(dateString: string): string {
   const date = parseDateString(dateString);
   return `${getMonthName(date.getMonth())} ${date.getDate()}`;
 }
-

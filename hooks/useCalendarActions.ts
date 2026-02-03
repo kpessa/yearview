@@ -28,6 +28,8 @@ export function useCalendarActions(
                         description: eventData.description,
                         date: eventData.date!,
                         endDate: eventData.endDate,
+                        startTime: eventData.startTime,
+                        endTime: eventData.endTime,
                         categoryId: eventData.categoryId!,
                         updatedAt: Date.now(),
                     })
@@ -41,6 +43,8 @@ export function useCalendarActions(
                     description: eventData.description,
                     date: eventData.date!,
                     endDate: eventData.endDate,
+                    startTime: eventData.startTime,
+                    endTime: eventData.endTime,
                     categoryId: eventData.categoryId!,
                     userId: user.id,
                     createdAt: Date.now(),

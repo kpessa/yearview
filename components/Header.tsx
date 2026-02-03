@@ -14,6 +14,10 @@ interface HeaderProps {
   onEditCategory: (category: Category) => void;
   onAddEvent: () => void;
   onOpenDisplayOptions: () => void;
+  viewMode: 'year' | 'cards';
+  onViewModeChange: (mode: 'year' | 'cards') => void;
+  selectedQuarter: 1 | 2 | 3 | 4;
+  onQuarterChange: (quarter: 1 | 2 | 3 | 4) => void;
   // Google Calendar Props
   onImportEvents: (events: Partial<Event>[], categoryId: string) => void;
   onDeleteGoogleEvents: (categoryId: string) => void;
@@ -31,6 +35,10 @@ export default function Header({
   onEditCategory,
   onAddEvent,
   onOpenDisplayOptions,
+  viewMode,
+  onViewModeChange,
+  selectedQuarter,
+  onQuarterChange,
   onImportEvents,
   onDeleteGoogleEvents,
   googleCalendarCategoryId,
@@ -46,6 +54,12 @@ export default function Header({
 
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: 10 }, (_, i) => currentYear + i);
+  const suitOptions = [
+    { value: 1, label: '♠ Spades (Q1)' },
+    { value: 2, label: '♥ Hearts (Q2)' },
+    { value: 3, label: '♣ Clubs (Q3)' },
+    { value: 4, label: '♦ Diamonds (Q4)' },
+  ] as const;
 
   return (
     <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-neutral-300">
@@ -75,6 +89,39 @@ export default function Header({
                 </option>
               ))}
             </select>
+
+            <div className="flex items-center bg-neutral-100 rounded-xl p-1">
+              <button
+                onClick={() => onViewModeChange('year')}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                  viewMode === 'year' ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-600'
+                }`}
+              >
+                Year
+              </button>
+              <button
+                onClick={() => onViewModeChange('cards')}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                  viewMode === 'cards' ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-600'
+                }`}
+              >
+                Cards
+              </button>
+            </div>
+
+            {viewMode === 'cards' && (
+              <select
+                value={selectedQuarter}
+                onChange={(e) => onQuarterChange(Number(e.target.value) as 1 | 2 | 3 | 4)}
+                className="px-3 py-2 rounded-xl border border-neutral-300 bg-white text-neutral-900 font-normal hover:border-neutral-400 focus:ring-2 focus:ring-neutral-400 focus:border-transparent outline-none transition-all cursor-pointer"
+              >
+                {suitOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
 
           <div className="flex items-center space-x-3">
@@ -143,6 +190,39 @@ export default function Header({
           {/* Mobile Menu */}
           {isMobileMenuOpen && (
             <div className="py-3 border-t border-neutral-200 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center bg-neutral-100 rounded-xl p-1">
+                  <button
+                    onClick={() => onViewModeChange('year')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                      viewMode === 'year' ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-600'
+                    }`}
+                  >
+                    Year
+                  </button>
+                  <button
+                    onClick={() => onViewModeChange('cards')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                      viewMode === 'cards' ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-600'
+                    }`}
+                  >
+                    Cards
+                  </button>
+                </div>
+                {viewMode === 'cards' && (
+                  <select
+                    value={selectedQuarter}
+                    onChange={(e) => onQuarterChange(Number(e.target.value) as 1 | 2 | 3 | 4)}
+                    className="px-2 py-1 rounded-lg border border-neutral-300 bg-white text-neutral-900 text-xs"
+                  >
+                    {suitOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
               <div className="flex items-center justify-between text-sm">
                 <span className="text-neutral-600 truncate max-w-[200px]">{user?.email}</span>
                 <button

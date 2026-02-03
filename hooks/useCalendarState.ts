@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { db } from '@/lib/instant';
 import type { Event, Category, CustomHoliday, DayNote } from '@/lib/instant';
 import { GOOGLE_CALENDAR_CATEGORY_NAME } from '@/lib/constants';
+import { getQuarterForDate } from '@/lib/dateUtils';
 
 export interface CalendarState {
     selectedYear: number;
@@ -26,6 +27,10 @@ export interface CalendarState {
     setSelectedDate: (date: Date | null) => void;
     googleCalendarCategoryId: string | null;
     setGoogleCalendarCategoryId: (id: string | null) => void;
+    viewMode: 'year' | 'cards';
+    setViewMode: (mode: 'year' | 'cards') => void;
+    selectedQuarter: 1 | 2 | 3 | 4;
+    setSelectedQuarter: (quarter: 1 | 2 | 3 | 4) => void;
     // Display options
     showPastDatesAsGray: boolean;
     setShowPastDatesAsGray: (show: boolean) => void;
@@ -59,6 +64,10 @@ export function useCalendarState(): CalendarState {
     const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
     const [selectedDate, setSelectedDate] = useState<Date | null>(null);
     const [googleCalendarCategoryId, setGoogleCalendarCategoryId] = useState<string | null>(null);
+    const [viewMode, setViewMode] = useState<'year' | 'cards'>('year');
+    const [selectedQuarter, setSelectedQuarter] = useState<1 | 2 | 3 | 4>(() => {
+        return getQuarterForDate(new Date());
+    });
 
     // Display options state
     const [showPastDatesAsGray, setShowPastDatesAsGray] = useState(true);
@@ -87,6 +96,10 @@ export function useCalendarState(): CalendarState {
         setSelectedDate,
         googleCalendarCategoryId,
         setGoogleCalendarCategoryId,
+        viewMode,
+        setViewMode,
+        selectedQuarter,
+        setSelectedQuarter,
         // Display options
         showPastDatesAsGray,
         setShowPastDatesAsGray,

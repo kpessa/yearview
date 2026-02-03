@@ -68,6 +68,12 @@ export default function GoogleCalendarSync({
       const convertedEvents: Partial<Event>[] = googleEvents.map((gEvent: GoogleCalendarEvent) => {
         const startDate = gEvent.start.date || gEvent.start.dateTime?.split('T')[0] || '';
         const endDate = gEvent.end.date || gEvent.end.dateTime?.split('T')[0] || '';
+        const startTime = gEvent.start.dateTime
+          ? new Date(gEvent.start.dateTime).toTimeString().slice(0, 5)
+          : undefined;
+        const endTime = gEvent.end.dateTime
+          ? new Date(gEvent.end.dateTime).toTimeString().slice(0, 5)
+          : undefined;
 
         return {
           id: uuidv4(),
@@ -75,6 +81,8 @@ export default function GoogleCalendarSync({
           description: gEvent.description || `Imported from Google Calendar`,
           date: startDate,
           endDate: endDate !== startDate ? endDate : undefined,
+          startTime,
+          endTime,
           categoryId: categoryId,
           googleEventId: gEvent.id,
         };
@@ -132,4 +140,3 @@ export default function GoogleCalendarSync({
     </div>
   );
 }
-
