@@ -1,7 +1,7 @@
 'use client';
 
 import { Category } from '@/lib/instant';
-import { CATEGORY_COLORS } from '@/lib/colors';
+import { CATEGORY_COLORS, normalizeOpacity, toRgba } from '@/lib/colors';
 import { useState, useEffect } from 'react';
 import { useToast } from '@/contexts/ToastContext';
 import { useFocusTrap } from '@/hooks/useAccessibility';
@@ -42,6 +42,10 @@ export default function CategoryModal({
   }, [category, isOpen]);
 
   if (!isOpen) return null;
+
+  const normalizedOpacity = normalizeOpacity(opacity);
+  const previewColor = toRgba(color, normalizedOpacity);
+  const opacityPercent = Math.round(normalizedOpacity * 100);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -137,26 +141,62 @@ export default function CategoryModal({
             </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-light text-stone-600 mb-2">
+          <div className="space-y-3">
+            <label className="block text-sm font-light text-stone-600">
               Opacity
             </label>
-            <div className="flex items-center gap-4">
-              <input
-                type="range"
-                min={0.1}
-                max={1}
-                step={0.05}
-                value={opacity}
-                onChange={(e) => setOpacity(parseFloat(e.target.value))}
-                className="w-full accent-stone-700"
-              />
-              <div className="w-14 text-right text-sm font-medium text-stone-600">
-                {Math.round(opacity * 100)}%
+            <div
+              className="rounded-2xl border border-neutral-200/70 p-3 bg-gradient-to-br from-white to-stone-50 shadow-sm"
+              style={{
+                backgroundImage:
+                  'linear-gradient(135deg, rgba(255,255,255,1) 0%, rgba(250,250,249,1) 100%)',
+              }}
+            >
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-3">
+                  <div
+                    className="w-12 h-12 rounded-2xl border border-white/70 shadow-inner"
+                    style={{ backgroundColor: previewColor }}
+                    aria-hidden="true"
+                  />
+                  <div>
+                    <div className="text-xs uppercase tracking-wider text-stone-400 font-medium">Preview</div>
+                    <div className="text-sm font-medium text-stone-700">
+                      {name.trim() || 'Category'}
+                    </div>
+                  </div>
+                </div>
+                <div className="text-sm font-semibold text-stone-700 tabular-nums">
+                  {opacityPercent}%
+                </div>
+              </div>
+
+              <div className="relative">
+                <div
+                  className="absolute inset-0 h-2 rounded-full"
+                  style={{
+                    background: `linear-gradient(90deg, ${toRgba(color, 0.1)} 0%, ${toRgba(color, 1)} 100%)`,
+                    opacity: 0.6,
+                  }}
+                  aria-hidden="true"
+                />
+                <input
+                  type="range"
+                  min={0.1}
+                  max={1}
+                  step={0.05}
+                  value={opacity}
+                  onChange={(e) => setOpacity(parseFloat(e.target.value))}
+                  className="w-full accent-stone-800 relative z-10"
+                />
+              </div>
+              <div className="flex items-center justify-between text-[11px] text-stone-400 mt-2">
+                <span>Faint</span>
+                <span>Bold</span>
               </div>
             </div>
-            <p className="text-xs text-stone-400 mt-2 font-light">
-              Lower values make this calendar less prominent.
+            <p className="text-xs text-stone-500 font-light">
+              Lower values make this calendar less prominent on the grid and event lists.
             </p>
           </div>
 
