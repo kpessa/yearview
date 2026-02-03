@@ -24,6 +24,7 @@ export default function CategoryModal({
   const { showToast } = useToast();
   const [name, setName] = useState('');
   const [color, setColor] = useState<string>(CATEGORY_COLORS[0].value);
+  const [opacity, setOpacity] = useState(1);
 
   // Focus trap must be called unconditionally to maintain hook order
   const focusTrapRef = useFocusTrap(isOpen, onClose);
@@ -32,9 +33,11 @@ export default function CategoryModal({
     if (category) {
       setName(category.name);
       setColor(category.color);
+      setOpacity(category.opacity ?? 1);
     } else {
       setName('');
       setColor(CATEGORY_COLORS[0].value);
+      setOpacity(1);
     }
   }, [category, isOpen]);
 
@@ -52,6 +55,7 @@ export default function CategoryModal({
       id: category?.id,
       name: name.trim(),
       color,
+      opacity,
     });
 
     onClose();
@@ -131,6 +135,29 @@ export default function CategoryModal({
                 />
               ))}
             </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-light text-stone-600 mb-2">
+              Opacity
+            </label>
+            <div className="flex items-center gap-4">
+              <input
+                type="range"
+                min={0.1}
+                max={1}
+                step={0.05}
+                value={opacity}
+                onChange={(e) => setOpacity(parseFloat(e.target.value))}
+                className="w-full accent-stone-700"
+              />
+              <div className="w-14 text-right text-sm font-medium text-stone-600">
+                {Math.round(opacity * 100)}%
+              </div>
+            </div>
+            <p className="text-xs text-stone-400 mt-2 font-light">
+              Lower values make this calendar less prominent.
+            </p>
           </div>
 
           <div className="flex items-center justify-between pt-4">

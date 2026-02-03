@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Category, Event, db } from '@/lib/instant';
+import { normalizeOpacity, toRgba } from '@/lib/colors';
 import GoogleCalendarSync from './GoogleCalendarSync';
 
 interface HeaderProps {
@@ -163,6 +164,10 @@ export default function Header({
 
             {categories.map((category) => {
               const isVisible = visibleCategoryIds.has(category.id);
+              const categoryOpacity = normalizeOpacity(category.opacity);
+              const pillBackgroundOpacity = isVisible ? 0.25 * categoryOpacity : 0.12 * categoryOpacity;
+              const pillBorderOpacity = isVisible ? Math.min(1, 0.9 * categoryOpacity + 0.1) : 0;
+              const pillTextOpacity = isVisible ? 1 : 0.7;
               return (
                 <div key={category.id} className="relative group">
                   <button
@@ -180,15 +185,15 @@ export default function Header({
                       }
                     `}
                     style={{
-                      backgroundColor: isVisible ? category.color + '40' : category.color + '20',
-                      color: isVisible ? category.color : category.color + '90',
-                      border: `2px solid ${isVisible ? category.color : 'transparent'}`,
+                      backgroundColor: toRgba(category.color, pillBackgroundOpacity),
+                      color: toRgba(category.color, pillTextOpacity),
+                      border: `2px solid ${isVisible ? toRgba(category.color, pillBorderOpacity) : 'transparent'}`,
                     }}
                   >
                     <span className="flex items-center space-x-2">
                       <span
                         className="w-2 h-2 rounded-full"
-                        style={{ backgroundColor: category.color }}
+                        style={{ backgroundColor: toRgba(category.color, categoryOpacity) }}
                       ></span>
                       <span>{category.name}</span>
                     </span>
@@ -265,6 +270,10 @@ export default function Header({
               <div className="flex flex-wrap gap-2">
                 {categories.map((category) => {
                   const isVisible = visibleCategoryIds.has(category.id);
+                  const categoryOpacity = normalizeOpacity(category.opacity);
+                  const pillBackgroundOpacity = isVisible ? 0.25 * categoryOpacity : 0.12 * categoryOpacity;
+                  const pillBorderOpacity = isVisible ? Math.min(1, 0.9 * categoryOpacity + 0.1) : 0;
+                  const pillTextOpacity = isVisible ? 1 : 0.7;
                   return (
                     <button
                       key={category.id}
@@ -275,15 +284,15 @@ export default function Header({
                         ${isVisible ? 'opacity-100' : 'opacity-40'}
                       `}
                       style={{
-                        backgroundColor: isVisible ? category.color + '40' : category.color + '20',
-                        color: isVisible ? category.color : category.color + '90',
-                        border: `2px solid ${isVisible ? category.color : 'transparent'}`,
+                        backgroundColor: toRgba(category.color, pillBackgroundOpacity),
+                        color: toRgba(category.color, pillTextOpacity),
+                        border: `2px solid ${isVisible ? toRgba(category.color, pillBorderOpacity) : 'transparent'}`,
                       }}
                     >
                       <span className="flex items-center space-x-1">
                         <span
                           className="w-2 h-2 rounded-full"
-                          style={{ backgroundColor: category.color }}
+                          style={{ backgroundColor: toRgba(category.color, categoryOpacity) }}
                         ></span>
                         <span>{category.name}</span>
                       </span>

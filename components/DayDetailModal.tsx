@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import { Event, Category, CustomHoliday, DayNote } from '@/lib/instant';
 import { getDayOfWeek, getMonthName, formatDate } from '@/lib/dateUtils';
 import { getHolidayName, isExtendedWeekend, getExtendedWeekendHolidayName } from '@/lib/holidays';
+import { normalizeOpacity, toRgba } from '@/lib/colors';
 import { useFocusTrap } from '@/hooks/useAccessibility';
 
 interface DayDetailModalProps {
@@ -301,14 +302,15 @@ export default function DayDetailModal({
             <div className="space-y-3">
               {events.map((event) => {
                 const category = categoryMap.get(event.categoryId);
+                const categoryOpacity = normalizeOpacity(category?.opacity);
                 return (
                   <div
                     key={event.id}
                     onClick={() => onEditEvent(event)}
                     className="p-4 rounded-2xl border cursor-pointer hover:shadow-sm transition-all"
                     style={{
-                      backgroundColor: category?.color + '20',
-                      borderColor: category?.color + '40',
+                      backgroundColor: category ? toRgba(category.color, 0.2 * categoryOpacity) : undefined,
+                      borderColor: category ? toRgba(category.color, 0.4 * categoryOpacity) : undefined,
                     }}
                   >
                     <div className="flex items-start justify-between">
@@ -316,12 +318,12 @@ export default function DayDetailModal({
                         <div className="flex items-center space-x-2 mb-2">
                           <div
                             className="w-3 h-3 rounded-full"
-                            style={{ backgroundColor: category?.color }}
+                            style={{ backgroundColor: category ? toRgba(category.color, categoryOpacity) : undefined }}
                           ></div>
                           <span
                             className="text-xs font-light px-2 py-0.5 rounded-full"
                             style={{
-                              backgroundColor: category?.color + '30',
+                              backgroundColor: category ? toRgba(category.color, 0.3 * categoryOpacity) : undefined,
                               color: category?.color,
                             }}
                           >
