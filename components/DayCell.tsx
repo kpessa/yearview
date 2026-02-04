@@ -21,6 +21,7 @@ interface DayCellProps {
   chipsBelowBars?: boolean;
   separateAllDayAndTimed?: boolean;
   showEventCountBadge?: boolean;
+  weekendBackgroundClass?: string;
   showUSHolidays?: boolean;
   showIndiaHolidays?: boolean;
   showLongWeekends?: boolean;
@@ -42,6 +43,7 @@ export default function DayCell({
   chipsBelowBars = false,
   separateAllDayAndTimed = false,
   showEventCountBadge = false,
+  weekendBackgroundClass,
   customHolidays = [],
   dayNotes = [],
   showUSHolidays = true,
@@ -95,6 +97,7 @@ export default function DayCell({
     showLongWeekends,
     showPastDatesAsGray,
     pastDateOpacityClass,
+    weekendBackgroundClass,
   });
 
   // Determine text color based on priority

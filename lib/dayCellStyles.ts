@@ -10,6 +10,7 @@ interface DayCellStyleOptions {
   showLongWeekends?: boolean;
   showPastDatesAsGray?: boolean;
   pastDateOpacityClass?: string;
+  weekendBackgroundClass?: string;
 }
 
 
@@ -23,6 +24,7 @@ export function getDayCellBackgroundClass(
     showLongWeekends = true,
     showPastDatesAsGray = true,
     pastDateOpacityClass = 'opacity-50',
+    weekendBackgroundClass = 'bg-neutral-100 border-r border-neutral-100',
   }: DayCellStyleOptions,
 ): string {
   const isCurrentDay = isToday(date);
@@ -42,7 +44,7 @@ export function getDayCellBackgroundClass(
   else if (isHolidayDay) backgroundClass = 'bg-red-100 border-r border-red-200';
   else if (isHighlighted) backgroundClass = 'bg-blue-50 border-r border-blue-200';
   else if (isExtendedWeekendDay) backgroundClass = 'bg-red-50 border-r border-red-100';
-  else if (isWeekend) backgroundClass = 'bg-neutral-100 border-r border-neutral-100';
+  else if (isWeekend) backgroundClass = weekendBackgroundClass;
 
   return `${backgroundClass} ${pastOpacity}`.trim();
 }

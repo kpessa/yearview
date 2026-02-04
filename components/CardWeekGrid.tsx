@@ -247,6 +247,7 @@ export default function CardWeekGrid({
                           showLongWeekends={showLongWeekends}
                           showPastDatesAsGray={showPastDatesAsGray}
                           pastDateOpacityClass="opacity-40"
+                          weekendBackgroundClass="bg-neutral-200 border-r border-neutral-200"
                           currentDayAccentClass="ring-4 ring-emerald-600 ring-inset shadow-[0_0_0_2px_rgba(16,185,129,0.35)]"
                         />
                       </div>
@@ -273,6 +274,7 @@ export default function CardWeekGrid({
                               showLongWeekends,
                               showPastDatesAsGray,
                               pastDateOpacityClass: 'opacity-40',
+                              weekendBackgroundClass: 'bg-neutral-200 border-r border-neutral-200',
                             })} ${isOutsideYear ? 'opacity-50' : ''}`}
                           />
                         );
