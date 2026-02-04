@@ -5,6 +5,7 @@ import { isToday, getDayOfWeek, formatDate } from '@/lib/dateUtils';
 import { formatTimeRange, sortEventsByTime } from '@/lib/eventUtils';
 import { isHoliday, isExtendedWeekend, getHolidayName, getExtendedWeekendHolidayName } from '@/lib/holidays';
 import { normalizeOpacity, toRgba } from '@/lib/colors';
+import { getDayCellBackgroundClass } from '@/lib/dayCellStyles';
 
 interface DayCellProps {
   date: Date;
@@ -18,6 +19,7 @@ interface DayCellProps {
   showEventDots?: boolean;
   showSingleDayChips?: boolean;
   chipsBelowBars?: boolean;
+  separateAllDayAndTimed?: boolean;
   showEventCountBadge?: boolean;
   showUSHolidays?: boolean;
   showIndiaHolidays?: boolean;
@@ -35,6 +37,7 @@ export default function DayCell({
   showEventDots = true,
   showSingleDayChips = false,
   chipsBelowBars = false,
+  separateAllDayAndTimed = false,
   showEventCountBadge = false,
   customHolidays = [],
   dayNotes = [],
@@ -49,10 +52,6 @@ export default function DayCell({
   const dateStr = formatDate(date);
 
   // Check if date is in the past
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const isPast = date < today;
-
   // Holiday checks - only if enabled
   const isHolidayDay = isHoliday(date, customHolidays, showUSHolidays, showIndiaHolidays);
   const isExtendedWeekendDay = showLongWeekends && isExtendedWeekend(date, customHolidays, showUSHolidays, showIndiaHolidays);
@@ -72,6 +71,8 @@ export default function DayCell({
   const singleDayEvents = sortEventsByTime(
     dayEvents.filter(event => (event.endDate || event.date) === event.date)
   );
+  const allDayEvents = singleDayEvents.filter(event => !event.startTime);
+  const timedEvents = singleDayEvents.filter(event => !!event.startTime);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' || e.key === ' ') {
@@ -81,14 +82,14 @@ export default function DayCell({
   };
 
   // Determine background color based on priority
-  const getBackgroundClass = () => {
-    if (isCurrentDay) return 'bg-green-50 border border-green-600';
-    if (isHolidayDay) return 'bg-red-100 border-r border-red-200';
-    if (isHighlighted) return 'bg-blue-50 border-r border-blue-200';
-    if (isExtendedWeekendDay) return 'bg-red-50 border-r border-red-100';
-    if (isWeekend) return 'bg-neutral-100 border-r border-neutral-100';
-    return 'bg-white border-r border-neutral-100';
-  };
+  const getBackgroundClass = () => getDayCellBackgroundClass(date, {
+    customHolidays,
+    dayNotes,
+    showUSHolidays,
+    showIndiaHolidays,
+    showLongWeekends,
+    showPastDatesAsGray,
+  });
 
   // Determine text color based on priority
   const getTextClass = () => {
@@ -108,9 +109,6 @@ export default function DayCell({
     return baseTitle;
   };
 
-  // Apply past date styling
-  const pastOpacity = isPast && showPastDatesAsGray && !isCurrentDay ? 'opacity-50' : '';
-
   return (
     <div
       onClick={() => onDayClick(date)}
@@ -124,7 +122,7 @@ export default function DayCell({
       className={`
         relative transition-colors duration-200 cursor-pointer
         h-full hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500
-        ${getBackgroundClass()} ${pastOpacity}
+        ${getBackgroundClass()}
       `}
     >
       <div className="px-1 py-1">
@@ -146,33 +144,98 @@ export default function DayCell({
               </div>
             )}
             {showSingleDayChips && singleDayEvents.length > 0 && (
-              <div className={`mt-0.5 space-y-0.5 day-chip-stack ${chipsBelowBars ? 'day-chip-stack--lower' : ''}`}>
-                {singleDayEvents.slice(0, 2).map(event => {
-                  const category = categories.find(c => c.id === event.categoryId);
-                  const categoryOpacity = normalizeOpacity(category?.opacity);
-                  return (
-                    <button
-                      key={event.id}
-                      type="button"
-                      className="day-chip"
-                      style={{
-                        backgroundColor: category ? toRgba(category.color, categoryOpacity) : '#9ca3af',
-                      }}
-                      onClick={(e) => {
-                        if (!onEventClick) return;
-                        e.stopPropagation();
-                        onEventClick(event);
-                      }}
-                      title={event.title}
-                    >
-                      {formatTimeRange(event)} {event.title}
-                    </button>
-                  );
-                })}
-                {singleDayEvents.length > 2 && (
-                  <span className="text-[7px] text-neutral-500">+{singleDayEvents.length - 2}</span>
-                )}
-              </div>
+              separateAllDayAndTimed ? (
+                <div
+                  className={`mt-0.5 day-chip-stack ${chipsBelowBars ? 'day-chip-stack--lower' : ''} ${allDayEvents.length > 0 && timedEvents.length > 0 ? 'day-chip-stack--split' : ''}`}
+                >
+                  {allDayEvents.length > 0 && (
+                    <div className="day-chip-group">
+                      {allDayEvents.slice(0, 2).map(event => {
+                        const category = categories.find(c => c.id === event.categoryId);
+                        const categoryOpacity = normalizeOpacity(category?.opacity);
+                        return (
+                          <button
+                            key={event.id}
+                            type="button"
+                            className="day-chip"
+                            style={{
+                              backgroundColor: category ? toRgba(category.color, categoryOpacity) : '#9ca3af',
+                            }}
+                            onClick={(e) => {
+                              if (!onEventClick) return;
+                              e.stopPropagation();
+                              onEventClick(event);
+                            }}
+                            title={event.title}
+                          >
+                            {formatTimeRange(event)} {event.title}
+                          </button>
+                        );
+                      })}
+                      {allDayEvents.length > 2 && (
+                        <span className="text-[7px] text-neutral-500">+{allDayEvents.length - 2}</span>
+                      )}
+                    </div>
+                  )}
+                  {timedEvents.length > 0 && (
+                    <div className="day-chip-group">
+                      {timedEvents.slice(0, 2).map(event => {
+                        const category = categories.find(c => c.id === event.categoryId);
+                        const categoryOpacity = normalizeOpacity(category?.opacity);
+                        return (
+                          <button
+                            key={event.id}
+                            type="button"
+                            className="day-chip"
+                            style={{
+                              backgroundColor: category ? toRgba(category.color, categoryOpacity) : '#9ca3af',
+                            }}
+                            onClick={(e) => {
+                              if (!onEventClick) return;
+                              e.stopPropagation();
+                              onEventClick(event);
+                            }}
+                            title={event.title}
+                          >
+                            {formatTimeRange(event)} {event.title}
+                          </button>
+                        );
+                      })}
+                      {timedEvents.length > 2 && (
+                        <span className="text-[7px] text-neutral-500">+{timedEvents.length - 2}</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className={`mt-0.5 space-y-0.5 day-chip-stack ${chipsBelowBars ? 'day-chip-stack--lower' : ''}`}>
+                  {singleDayEvents.slice(0, 2).map(event => {
+                    const category = categories.find(c => c.id === event.categoryId);
+                    const categoryOpacity = normalizeOpacity(category?.opacity);
+                    return (
+                      <button
+                        key={event.id}
+                        type="button"
+                        className="day-chip"
+                        style={{
+                          backgroundColor: category ? toRgba(category.color, categoryOpacity) : '#9ca3af',
+                        }}
+                        onClick={(e) => {
+                          if (!onEventClick) return;
+                          e.stopPropagation();
+                          onEventClick(event);
+                        }}
+                        title={event.title}
+                      >
+                        {formatTimeRange(event)} {event.title}
+                      </button>
+                    );
+                  })}
+                  {singleDayEvents.length > 2 && (
+                    <span className="text-[7px] text-neutral-500">+{singleDayEvents.length - 2}</span>
+                  )}
+                </div>
+              )
             )}
           {dayEvents.length > 0 && (
             showEventDots ? (

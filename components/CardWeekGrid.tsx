@@ -13,6 +13,7 @@ import {
 } from '@/lib/dateUtils';
 import DayCell from './DayCell';
 import { normalizeOpacity, toRgba } from '@/lib/colors';
+import { getDayCellBackgroundClass } from '@/lib/dayCellStyles';
 
 interface CardWeekGridProps {
   year: number;
@@ -126,6 +127,17 @@ export default function CardWeekGrid({
       .filter(event => event.span > 0);
   };
 
+  const quarterWeekEvents = useMemo(() => {
+    return quarterWeeks.map(week => getWeekEvents(week.dates));
+  }, [quarterWeeks, visibleEvents]);
+
+  const maxWeekEventStackHeight = useMemo(() => {
+    const maxEvents = quarterWeekEvents.reduce((max, eventsForWeek) => {
+      return Math.max(max, eventsForWeek.length);
+    }, 0);
+    return maxEvents > 0 ? 20 + (maxEvents - 1) * 18 : 0;
+  }, [quarterWeekEvents]);
+
   return (
     <div className="pb-6 space-y-0">
       <div className="card-week-header">
@@ -148,7 +160,8 @@ export default function CardWeekGrid({
         const monthLabel = monthChangeDate
           ? monthChangeDate.toLocaleDateString('en-US', { month: 'long' })
           : '';
-        const weekEvents = getWeekEvents(week.dates);
+        const weekEvents = quarterWeekEvents[index] || [];
+        const eventStackHeight = maxWeekEventStackHeight;
 
         return (
           <div key={`${week.start.toISOString()}-${index}`} className="card-week-stack">
@@ -168,15 +181,14 @@ export default function CardWeekGrid({
                 )}
               </div>
 
-              <div className="relative flex-1 card-week-grid">
+              <div
+                className="relative flex-1 card-week-grid"
+                style={eventStackHeight > 0 ? { paddingBottom: `${eventStackHeight}px` } : undefined}
+              >
                 <div className="grid grid-cols-7 gap-px bg-neutral-200 overflow-hidden">
                 {week.dates.map((date, dayIndex) => {
                   const isOutsideYear = date.getFullYear() !== year;
                   const dayEvents = getEventsForDate(date);
-                  const hasSpanningEvent = dayEvents.some(event => {
-                    const eventEnd = event.endDate || event.date;
-                    return eventEnd !== event.date;
-                  });
                   return (
                     <div
                       key={`${formatDate(date)}-${dayIndex}`}
@@ -194,7 +206,8 @@ export default function CardWeekGrid({
                           showEventDots={false}
                           showEventCountBadge={false}
                           showSingleDayChips={true}
-                          chipsBelowBars={hasSpanningEvent}
+                          chipsBelowBars={false}
+                          separateAllDayAndTimed={true}
                           showUSHolidays={showUSHolidays}
                           showIndiaHolidays={showIndiaHolidays}
                           showLongWeekends={showLongWeekends}
@@ -205,7 +218,36 @@ export default function CardWeekGrid({
                   })}
                 </div>
 
-                <div className="card-week-events">
+                {eventStackHeight > 0 && (
+                  <div
+                    className="card-week-spanning-bg"
+                    style={{ height: `${eventStackHeight}px` }}
+                  >
+                    <div className="grid grid-cols-7 gap-px bg-neutral-200 overflow-hidden h-full">
+                      {week.dates.map((date, dayIndex) => {
+                        const isOutsideYear = date.getFullYear() !== year;
+                        return (
+                          <div
+                            key={`span-bg-${formatDate(date)}-${dayIndex}`}
+                            className={`h-full ${getDayCellBackgroundClass(date, {
+                              customHolidays,
+                              dayNotes,
+                              showUSHolidays,
+                              showIndiaHolidays,
+                              showLongWeekends,
+                              showPastDatesAsGray,
+                            })} ${isOutsideYear ? 'opacity-50' : ''}`}
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                <div
+                  className="card-week-events"
+                  style={eventStackHeight > 0 ? { height: `${eventStackHeight}px` } : undefined}
+                >
                   {weekEvents.map((event, eventIndex) => {
                     const category = categories.find(c => c.id === event.categoryId);
                     if (!category) return null;
@@ -225,7 +267,7 @@ export default function CardWeekGrid({
                         style={{
                           left: `${leftPercent}%`,
                           width: `${widthPercent}%`,
-                          top: `${4 + (eventIndex * 18)}px`,
+                          bottom: `${4 + (eventIndex * 18)}px`,
                           backgroundColor: toRgba(category.color, categoryOpacity),
                         }}
                         title={event.title}
