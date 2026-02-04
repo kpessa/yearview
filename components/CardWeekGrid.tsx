@@ -12,6 +12,7 @@ import {
   WeekInYear,
 } from '@/lib/dateUtils';
 import DayCell from './DayCell';
+import { normalizeOpacity, toRgba } from '@/lib/colors';
 
 interface CardWeekGridProps {
   year: number;
@@ -208,6 +209,7 @@ export default function CardWeekGrid({
                   {weekEvents.map((event, eventIndex) => {
                     const category = categories.find(c => c.id === event.categoryId);
                     if (!category) return null;
+                    const categoryOpacity = normalizeOpacity(category.opacity);
                     const leftPercent = (event.startIndex / 7) * 100;
                     const widthPercent = (event.span / 7) * 100;
 
@@ -224,7 +226,7 @@ export default function CardWeekGrid({
                           left: `${leftPercent}%`,
                           width: `${widthPercent}%`,
                           top: `${4 + (eventIndex * 18)}px`,
-                          backgroundColor: category.color,
+                          backgroundColor: toRgba(category.color, categoryOpacity),
                         }}
                         title={event.title}
                       >

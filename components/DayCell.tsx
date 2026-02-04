@@ -4,6 +4,7 @@ import { Event, Category, CustomHoliday, DayNote } from '@/lib/instant';
 import { isToday, getDayOfWeek, formatDate } from '@/lib/dateUtils';
 import { formatTimeRange, sortEventsByTime } from '@/lib/eventUtils';
 import { isHoliday, isExtendedWeekend, getHolidayName, getExtendedWeekendHolidayName } from '@/lib/holidays';
+import { normalizeOpacity, toRgba } from '@/lib/colors';
 
 interface DayCellProps {
   date: Date;
@@ -148,12 +149,15 @@ export default function DayCell({
               <div className={`mt-0.5 space-y-0.5 day-chip-stack ${chipsBelowBars ? 'day-chip-stack--lower' : ''}`}>
                 {singleDayEvents.slice(0, 2).map(event => {
                   const category = categories.find(c => c.id === event.categoryId);
+                  const categoryOpacity = normalizeOpacity(category?.opacity);
                   return (
                     <button
                       key={event.id}
                       type="button"
                       className="day-chip"
-                      style={{ backgroundColor: category?.color || '#9ca3af' }}
+                      style={{
+                        backgroundColor: category ? toRgba(category.color, categoryOpacity) : '#9ca3af',
+                      }}
                       onClick={(e) => {
                         if (!onEventClick) return;
                         e.stopPropagation();
@@ -175,12 +179,15 @@ export default function DayCell({
               <div className="mt-0.5 flex items-center gap-0.5 flex-wrap">
                 {dayEvents.slice(0, 3).map(event => {
                   const category = categories.find(c => c.id === event.categoryId);
+                  const categoryOpacity = normalizeOpacity(category?.opacity);
                   return (
                     <button
                       key={event.id}
                       type="button"
                       className="w-1.5 h-1.5 rounded-full"
-                      style={{ backgroundColor: category?.color || '#9ca3af' }}
+                      style={{
+                        backgroundColor: category ? toRgba(category.color, categoryOpacity) : '#9ca3af',
+                      }}
                       title={event.title}
                       onClick={(e) => {
                         if (!onEventClick) return;
