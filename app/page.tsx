@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import AuthWrapper from '@/components/AuthWrapper';
 import Header from '@/components/Header';
 import YearGrid from '@/components/YearGrid';
@@ -14,7 +15,6 @@ import {
   useCalendarState,
   useCalendarData,
   useVisibleCategoriesInit,
-  useGoogleCalendarCategory,
   useSelectedDateEvents
 } from '@/hooks/useCalendarState';
 import { useCalendarActions } from '@/hooks/useCalendarActions';
@@ -26,10 +26,14 @@ function CalendarApp() {
 
   // Initialize hooks
   useVisibleCategoriesInit(categories, state.visibleCategoryIds, state.setVisibleCategoryIds);
-  useGoogleCalendarCategory(categories, state.googleCalendarCategoryId, state.setGoogleCalendarCategoryId);
-
   const selectedDateEvents = useSelectedDateEvents(state.selectedDate, events);
   const actions = useCalendarActions(state, categories, events);
+  const { handleEnsureGoogleCategoriesFromEvents, handleDeduplicateGoogleEvents } = actions;
+
+  useEffect(() => {
+    handleEnsureGoogleCategoriesFromEvents();
+    handleDeduplicateGoogleEvents();
+  }, [handleEnsureGoogleCategoriesFromEvents, handleDeduplicateGoogleEvents, events, categories]);
 
   return (
     <div className="min-h-screen bg-neutral-50">
@@ -51,8 +55,7 @@ function CalendarApp() {
         // Google Calendar Props
         onImportEvents={actions.handleImportGoogleEvents}
         onDeleteGoogleEvents={actions.handleDeleteGoogleEvents}
-        googleCalendarCategoryId={state.googleCalendarCategoryId}
-        onCreateGoogleCategory={actions.handleCreateGoogleCategory}
+        onEnsureGoogleCalendarCategories={actions.handleEnsureGoogleCalendarCategories}
       />
 
       <div className="max-w-[1800px] mx-auto px-2 py-4">

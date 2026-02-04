@@ -1,3 +1,5 @@
+import { CATEGORY_COLORS } from './colors';
+
 export interface GoogleCalendarEvent {
   id: string;
   summary: string;
@@ -5,11 +7,24 @@ export interface GoogleCalendarEvent {
   start: { date?: string; dateTime?: string };
   end: { date?: string; dateTime?: string };
   colorId?: string;
+  calendarId?: string;
+  calendarName?: string;
 }
 
 interface TokenResponse {
   access_token: string;
   expires_in: number;
+}
+
+export interface GoogleCalendarListEntry {
+  id: string;
+  summary: string;
+  primary?: boolean;
+  selected?: boolean;
+  accessRole?: string;
+  backgroundColor?: string;
+  foregroundColor?: string;
+  colorId?: string;
 }
 
 export class GoogleCalendarService {
@@ -80,42 +95,65 @@ export class GoogleCalendarService {
     return !!this.accessToken;
   }
 
-  async fetchEvents(year: number): Promise<GoogleCalendarEvent[]> {
+  async fetchEvents(year: number, calendarIds: string[] = ['primary']): Promise<GoogleCalendarEvent[]> {
     try {
       if (!this.accessToken) {
         throw new Error('Not signed in to Google');
       }
 
+      if (!calendarIds.length) {
+        return [];
+      }
+
       const timeMin = new Date(year, 0, 1).toISOString();
       const timeMax = new Date(year, 11, 31, 23, 59, 59).toISOString();
 
-      const response = await fetch(
-        `https://www.googleapis.com/calendar/v3/calendars/primary/events?` +
-        `timeMin=${encodeURIComponent(timeMin)}&` +
-        `timeMax=${encodeURIComponent(timeMax)}&` +
-        `showDeleted=false&` +
-        `singleEvents=true&` +
-        `orderBy=startTime`,
-        {
-          headers: {
-            Authorization: `Bearer ${this.accessToken}`,
-          },
-        }
+      const responses = await Promise.all(
+        calendarIds.map(async (calendarId) => {
+          const response = await fetch(
+            `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?` +
+            `timeMin=${encodeURIComponent(timeMin)}&` +
+            `timeMax=${encodeURIComponent(timeMax)}&` +
+            `showDeleted=false&` +
+            `singleEvents=true&` +
+            `orderBy=startTime`,
+            {
+              headers: {
+                Authorization: `Bearer ${this.accessToken}`,
+              },
+            }
+          );
+
+          if (!response.ok) {
+            throw new Error(`Failed to fetch events for calendar ${calendarId}`);
+          }
+
+          const data = await response.json();
+          const items: GoogleCalendarEvent[] = data.items || [];
+          return items.map((item) => ({
+            ...item,
+            calendarId,
+          }));
+        })
       );
 
-      if (!response.ok) {
-        throw new Error('Failed to fetch calendar events');
+      const merged = responses.flat();
+      const uniqueById = new Map<string, GoogleCalendarEvent>();
+      for (const item of merged) {
+        const key = `${item.calendarId || 'primary'}:${item.id}`;
+        if (!uniqueById.has(key)) {
+          uniqueById.set(key, item);
+        }
       }
 
-      const data = await response.json();
-      return data.items || [];
+      return Array.from(uniqueById.values());
     } catch (error) {
       console.error('Error fetching Google Calendar events:', error);
       return [];
     }
   }
 
-  async getCalendars() {
+  async getCalendars(): Promise<GoogleCalendarListEntry[]> {
     try {
       if (!this.accessToken) {
         throw new Error('Not signed in to Google');
@@ -145,3 +183,17 @@ export class GoogleCalendarService {
 
 export const googleCalendarService = new GoogleCalendarService();
 
+export function getCalendarCategoryColor(calendarId: string, fallbackIndex: number = 0): string {
+  if (!calendarId) {
+    const index = Math.abs(fallbackIndex) % CATEGORY_COLORS.length;
+    return CATEGORY_COLORS[index].value;
+  }
+
+  let hash = 0;
+  for (let i = 0; i < calendarId.length; i += 1) {
+    hash = (hash * 31 + calendarId.charCodeAt(i)) | 0;
+  }
+
+  const index = Math.abs(hash) % CATEGORY_COLORS.length;
+  return CATEGORY_COLORS[index].value;
+}

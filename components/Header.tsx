@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Category, Event, db } from '@/lib/instant';
+import type { GoogleCalendarListEntry } from '@/lib/googleCalendar';
 import { normalizeOpacity, toRgba } from '@/lib/colors';
 import GoogleCalendarSync from './GoogleCalendarSync';
 
@@ -20,10 +21,9 @@ interface HeaderProps {
   selectedQuarter: 1 | 2 | 3 | 4;
   onQuarterChange: (quarter: 1 | 2 | 3 | 4) => void;
   // Google Calendar Props
-  onImportEvents: (events: Partial<Event>[], categoryId: string) => void;
-  onDeleteGoogleEvents: (categoryId: string) => void;
-  googleCalendarCategoryId: string | null;
-  onCreateGoogleCategory: () => string;
+  onImportEvents: (events: Partial<Event>[]) => void;
+  onDeleteGoogleEvents: () => void;
+  onEnsureGoogleCalendarCategories: (calendars: GoogleCalendarListEntry[]) => Map<string, string>;
 }
 
 export default function Header({
@@ -42,8 +42,7 @@ export default function Header({
   onQuarterChange,
   onImportEvents,
   onDeleteGoogleEvents,
-  googleCalendarCategoryId,
-  onCreateGoogleCategory,
+  onEnsureGoogleCalendarCategories,
 }: HeaderProps) {
   const { user } = db.useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -299,8 +298,7 @@ export default function Header({
               year={year}
               onImportEvents={onImportEvents}
               onDeleteGoogleEvents={onDeleteGoogleEvents}
-              googleCalendarCategoryId={googleCalendarCategoryId}
-              onCreateGoogleCategory={onCreateGoogleCategory}
+              onEnsureGoogleCalendarCategories={onEnsureGoogleCalendarCategories}
             />
             <button
               onClick={onOpenDisplayOptions}

@@ -3,7 +3,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { db } from '@/lib/instant';
 import type { Event, Category, CustomHoliday, DayNote } from '@/lib/instant';
-import { GOOGLE_CALENDAR_CATEGORY_NAME } from '@/lib/constants';
 import { getQuarterForDate } from '@/lib/dateUtils';
 
 export interface CalendarState {
@@ -25,8 +24,6 @@ export interface CalendarState {
     setSelectedCategory: (category: Category | null) => void;
     selectedDate: Date | null;
     setSelectedDate: (date: Date | null) => void;
-    googleCalendarCategoryId: string | null;
-    setGoogleCalendarCategoryId: (id: string | null) => void;
     viewMode: 'year' | 'cards';
     setViewMode: (mode: 'year' | 'cards') => void;
     selectedQuarter: 1 | 2 | 3 | 4;
@@ -63,7 +60,6 @@ export function useCalendarState(): CalendarState {
     const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
     const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
     const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-    const [googleCalendarCategoryId, setGoogleCalendarCategoryId] = useState<string | null>(null);
     const [viewMode, setViewMode] = useState<'year' | 'cards'>('year');
     const [selectedQuarter, setSelectedQuarter] = useState<1 | 2 | 3 | 4>(() => {
         return getQuarterForDate(new Date());
@@ -94,8 +90,6 @@ export function useCalendarState(): CalendarState {
         setSelectedCategory,
         selectedDate,
         setSelectedDate,
-        googleCalendarCategoryId,
-        setGoogleCalendarCategoryId,
         viewMode,
         setViewMode,
         selectedQuarter,
@@ -180,30 +174,12 @@ export function useVisibleCategoriesInit(
     visibleCategoryIds: Set<string>,
     setVisibleCategoryIds: React.Dispatch<React.SetStateAction<Set<string>>>
 ) {
-    // Initialize visible categories when categories load (exclude Google Calendar by default)
+    // Initialize visible categories when categories load
     useEffect(() => {
         if (categories.length > 0 && visibleCategoryIds.size === 0) {
-            const nonGoogleCategories = categories.filter(c => c.name !== GOOGLE_CALENDAR_CATEGORY_NAME);
-            setVisibleCategoryIds(new Set(nonGoogleCategories.map(c => c.id)));
+            setVisibleCategoryIds(new Set(categories.map(c => c.id)));
         }
     }, [categories, visibleCategoryIds.size, setVisibleCategoryIds]);
-}
-
-export function useGoogleCalendarCategory(
-    categories: Category[],
-    googleCalendarCategoryId: string | null,
-    setGoogleCalendarCategoryId: (id: string | null) => void
-) {
-    const { user } = db.useAuth();
-
-    useEffect(() => {
-        if (user) {
-            const googleCat = categories.find(c => c.name === 'Google Calendar');
-            if (googleCat && googleCat.id !== googleCalendarCategoryId) {
-                setGoogleCalendarCategoryId(googleCat.id);
-            }
-        }
-    }, [categories, user, googleCalendarCategoryId, setGoogleCalendarCategoryId]);
 }
 
 export function useSelectedDateEvents(
