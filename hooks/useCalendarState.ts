@@ -64,7 +64,7 @@ export function useCalendarState(): CalendarState {
     const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
     const [selectedDate, setSelectedDate] = useState<Date | null>(null);
     const [googleCalendarCategoryId, setGoogleCalendarCategoryId] = useState<string | null>(null);
-    const [viewMode, setViewMode] = useState<'year' | 'cards'>('year');
+    const [viewMode, setViewMode] = useState<'year' | 'cards'>('cards');
     const [selectedQuarter, setSelectedQuarter] = useState<1 | 2 | 3 | 4>(() => {
         return getQuarterForDate(new Date());
     });
@@ -72,7 +72,7 @@ export function useCalendarState(): CalendarState {
     // Display options state
     const [showPastDatesAsGray, setShowPastDatesAsGray] = useState(true);
     const [showUSHolidays, setShowUSHolidays] = useState(true);
-    const [showIndiaHolidays, setShowIndiaHolidays] = useState(true);
+    const [showIndiaHolidays, setShowIndiaHolidays] = useState(false);
     const [showLongWeekends, setShowLongWeekends] = useState(true);
 
     return {
