@@ -6,7 +6,8 @@ import { v4 as uuidv4 } from 'uuid';
 import type { Event, Category, CustomHoliday, DayNote } from '@/lib/instant';
 import { useToast } from '@/contexts/ToastContext';
 import type { CalendarState } from './useCalendarState';
-import { GOOGLE_CALENDAR_CATEGORY_NAME, GOOGLE_CALENDAR_COLOR } from '@/lib/constants';
+import type { GoogleCalendarListEntry } from '@/lib/googleCalendar';
+import { getCalendarCategoryColor } from '@/lib/googleCalendar';
 
 export function useCalendarActions(
     state: CalendarState,
@@ -139,18 +140,36 @@ export function useCalendarActions(
         });
     }, [events, state, showToast, showConfirm]);
 
-    const handleImportGoogleEvents = useCallback((googleEvents: Partial<Event>[], categoryId: string) => {
+    const handleImportGoogleEvents = useCallback((googleEvents: Partial<Event>[]) => {
         if (!user) return;
 
         try {
             let addedCount = 0;
             let linkedCount = 0;
 
+            const existingByGoogleKey = new Map<string, Event>();
+            const legacySignatureIndex = new Map<string, Event>();
+
+            events.forEach(existing => {
+                if (existing.googleEventId) {
+                    const key = `${existing.googleCalendarId || 'primary'}:${existing.googleEventId}`;
+                    existingByGoogleKey.set(key, existing);
+                }
+
+                if (!existing.googleEventId) {
+                    const signature = `${existing.title}::${existing.date}::${existing.endDate || ''}`;
+                    if (!legacySignatureIndex.has(signature)) {
+                        legacySignatureIndex.set(signature, existing);
+                    }
+                }
+            });
+
             googleEvents.forEach(eventData => {
-                if (!eventData.googleEventId) return;
+                if (!eventData.googleEventId || !eventData.categoryId) return;
 
                 // 1. Check if event already exists by googleEventId
-                const existingByGoogleId = events.find(e => e.googleEventId === eventData.googleEventId);
+                const existingKey = `${eventData.googleCalendarId || 'primary'}:${eventData.googleEventId}`;
+                const existingByGoogleId = existingByGoogleKey.get(existingKey);
 
                 if (existingByGoogleId) {
                     // Event already exists and is linked. 
@@ -160,18 +179,16 @@ export function useCalendarActions(
 
                 // 2. Check for legacy match (same category, title, dates, but NO googleEventId)
                 // This prevents duplicating events imported before we started tracking googleEventId
-                const legacyMatch = events.find(e =>
-                    e.categoryId === categoryId &&
-                    !e.googleEventId &&
-                    e.title === eventData.title &&
-                    e.date === eventData.date &&
-                    e.endDate === eventData.endDate
-                );
+                const signature = `${eventData.title}::${eventData.date}::${eventData.endDate || ''}`;
+                const legacyMatch = legacySignatureIndex.get(signature);
 
                 if (legacyMatch) {
                     // Link the legacy event to this Google event
                     (db.transact as any)((db.tx as any).events[legacyMatch.id].update({
                         googleEventId: eventData.googleEventId,
+                        googleCalendarId: eventData.googleCalendarId,
+                        googleCalendarName: eventData.googleCalendarName,
+                        categoryId: eventData.categoryId,
                         updatedAt: Date.now(),
                         // We could update other fields here if we wanted to enforce sync,
                         // but sticking to "only new" preference, we'll minimal touch.
@@ -193,6 +210,8 @@ export function useCalendarActions(
                     createdAt: Date.now(),
                     updatedAt: Date.now(),
                     googleEventId: eventData.googleEventId,
+                    googleCalendarId: eventData.googleCalendarId,
+                    googleCalendarName: eventData.googleCalendarName,
                 };
                 (db.transact as any)((db.tx as any).events[newEvent.id].update(newEvent));
                 addedCount++;
@@ -209,27 +228,152 @@ export function useCalendarActions(
         }
     }, [user, events, showToast]);
 
-    const handleCreateGoogleCategory = useCallback((): string => {
-        if (!user) return '';
+    const handleEnsureGoogleCalendarCategories = useCallback((calendars: GoogleCalendarListEntry[]) => {
+        const map = new Map<string, string>();
+        if (!user) return map;
 
-        // Check if category already exists
-        const existingCat = categories.find(c => c.name === GOOGLE_CALENDAR_CATEGORY_NAME);
-        if (existingCat) return existingCat.id;
+        const existingByCalendarId = new Map(
+            categories
+                .filter(category => category.googleCalendarId)
+                .map(category => [category.googleCalendarId as string, category])
+        );
 
-        // Create new Google Calendar category
-        const newCategory = {
-            id: uuidv4(),
-            name: GOOGLE_CALENDAR_CATEGORY_NAME,
-            color: GOOGLE_CALENDAR_COLOR,
-            opacity: 1,
-            userId: user.id,
-            createdAt: Date.now(),
-        };
-        (db.transact as any)((db.tx as any).categories[newCategory.id].update(newCategory));
-        state.setGoogleCalendarCategoryId(newCategory.id);
-        // Don't add to visible by default
-        return newCategory.id;
+        calendars.forEach((calendar, index) => {
+            const existing = existingByCalendarId.get(calendar.id);
+            if (existing) {
+                map.set(calendar.id, existing.id);
+                return;
+            }
+
+            const color = calendar.backgroundColor || getCalendarCategoryColor(calendar.id, index);
+            const newCategory: Category = {
+                id: uuidv4(),
+                name: calendar.summary || 'Google Calendar',
+                color,
+                opacity: 1,
+                userId: user.id,
+                createdAt: Date.now(),
+                googleCalendarId: calendar.id,
+                googleCalendarName: calendar.summary,
+                googleCalendarPrimary: !!calendar.primary,
+            };
+
+            (db.transact as any)((db.tx as any).categories[newCategory.id].update(newCategory));
+            map.set(calendar.id, newCategory.id);
+            state.setVisibleCategoryIds(prev => new Set([...prev, newCategory.id]));
+        });
+
+        return map;
     }, [user, categories, state]);
+
+    const handleEnsureGoogleCategoriesFromEvents = useCallback(() => {
+        if (!user) return;
+
+        const googleEvents = events.filter(event => event.googleCalendarId);
+        if (googleEvents.length === 0) return;
+
+        const existingByCalendarId = new Map(
+            categories
+                .filter(category => category.googleCalendarId)
+                .map(category => [category.googleCalendarId as string, category])
+        );
+
+        const createdMap = new Map<string, string>();
+        let fallbackIndex = 0;
+
+        googleEvents.forEach(event => {
+            const calendarId = event.googleCalendarId as string;
+            if (existingByCalendarId.has(calendarId) || createdMap.has(calendarId)) return;
+
+            const name = event.googleCalendarName || 'Google Calendar';
+            const newCategory: Category = {
+                id: uuidv4(),
+                name,
+                color: getCalendarCategoryColor(calendarId, fallbackIndex),
+                opacity: 1,
+                userId: user.id,
+                createdAt: Date.now(),
+                googleCalendarId: calendarId,
+                googleCalendarName: name,
+                googleCalendarPrimary: false,
+            };
+
+            fallbackIndex += 1;
+            (db.transact as any)((db.tx as any).categories[newCategory.id].update(newCategory));
+            createdMap.set(calendarId, newCategory.id);
+            state.setVisibleCategoryIds(prev => new Set([...prev, newCategory.id]));
+        });
+
+        const calendarIdToCategoryId = new Map<string, string>([
+            ...existingByCalendarId.entries(),
+            ...createdMap.entries(),
+        ].map(([calendarId, category]) => [calendarId, typeof category === 'string' ? category : category.id]));
+
+        googleEvents.forEach(event => {
+            const calendarId = event.googleCalendarId as string;
+            const targetCategoryId = calendarIdToCategoryId.get(calendarId);
+            if (!targetCategoryId) return;
+            if (event.categoryId === targetCategoryId) return;
+
+            (db.transact as any)(
+                (db.tx as any).events[event.id].update({
+                    categoryId: targetCategoryId,
+                    updatedAt: Date.now(),
+                })
+            );
+        });
+    }, [user, events, categories, state]);
+
+    const handleDeduplicateGoogleEvents = useCallback(() => {
+        if (!user) return;
+        if (events.length === 0) return;
+
+        const googleCategoryIds = new Set(
+            categories.filter(category => category.googleCalendarId).map(category => category.id)
+        );
+        const byGoogleId = new Map<string, Event[]>();
+        const byExactSignature = new Map<string, Event[]>();
+
+        events.forEach(event => {
+            const isGoogleLinked = !!event.googleEventId || !!event.googleCalendarId || googleCategoryIds.has(event.categoryId);
+            if (!isGoogleLinked) return;
+
+            if (event.googleEventId) {
+                const key = `${event.googleCalendarId || 'primary'}:${event.googleEventId}`;
+                const bucket = byGoogleId.get(key) || [];
+                bucket.push(event);
+                byGoogleId.set(key, bucket);
+            }
+
+            const signature = [
+                event.categoryId,
+                event.title,
+                event.date,
+                event.endDate || '',
+                event.startTime || '',
+                event.endTime || '',
+            ].join('::');
+            const sigBucket = byExactSignature.get(signature) || [];
+            sigBucket.push(event);
+            byExactSignature.set(signature, sigBucket);
+        });
+
+        const deleteDuplicates = (bucket: Event[]) => {
+            if (bucket.length <= 1) return;
+            const sorted = [...bucket].sort((a, b) => {
+                const aHasGoogleId = a.googleEventId ? 1 : 0;
+                const bHasGoogleId = b.googleEventId ? 1 : 0;
+                if (aHasGoogleId !== bHasGoogleId) return bHasGoogleId - aHasGoogleId;
+                return a.createdAt - b.createdAt;
+            });
+            sorted.slice(1).forEach(duplicate => {
+                (db.transact as any)((db.tx as any).events[duplicate.id].delete());
+            });
+        };
+
+        byGoogleId.forEach(deleteDuplicates);
+        byExactSignature.forEach(deleteDuplicates);
+    }, [user, events, categories]);
 
     const handleToggleCategory = useCallback((categoryId: string) => {
         state.setVisibleCategoryIds(prev => {
@@ -284,24 +428,29 @@ export function useCalendarActions(
         state.setSelectedDate(null);
     }, [state]);
 
-    const handleDeleteGoogleEvents = useCallback((categoryId: string) => {
+    const handleDeleteGoogleEvents = useCallback(() => {
         try {
-            // Delete all events in the Google Calendar category
-            const googleEvents = events.filter(e => e.categoryId === categoryId);
+            // Delete all events linked to Google calendars
+            const googleEvents = events.filter(e => e.googleCalendarId);
             googleEvents.forEach(event => {
                 (db.transact as any)((db.tx as any).events[event.id].delete());
             });
 
-            // Also hide the category
+            // Delete Google calendar categories
+            const googleCategories = categories.filter(category => category.googleCalendarId);
+            googleCategories.forEach(category => {
+                (db.transact as any)((db.tx as any).categories[category.id].delete());
+            });
+
             state.setVisibleCategoryIds(prev => {
                 const newSet = new Set(prev);
-                newSet.delete(categoryId);
+                googleCategories.forEach(category => newSet.delete(category.id));
                 return newSet;
             });
         } catch (error) {
             console.error('Error deleting Google Calendar events:', error);
         }
-    }, [events, state]);
+    }, [events, categories, state]);
 
     const handleSaveCustomHoliday = useCallback((holidayData: Partial<CustomHoliday>) => {
         if (!user) return;
@@ -401,7 +550,9 @@ export function useCalendarActions(
         handleSaveCategory,
         handleDeleteCategory,
         handleImportGoogleEvents,
-        handleCreateGoogleCategory,
+        handleEnsureGoogleCalendarCategories,
+        handleEnsureGoogleCategoriesFromEvents,
+        handleDeduplicateGoogleEvents,
         handleDeleteGoogleEvents,
         handleToggleCategory,
         handleDayClick,

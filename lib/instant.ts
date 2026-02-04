@@ -11,6 +11,9 @@ export type Category = {
   opacity?: number;
   userId: string;
   createdAt: number;
+  googleCalendarId?: string;
+  googleCalendarName?: string;
+  googleCalendarPrimary?: boolean;
 };
 
 export type Event = {
@@ -26,6 +29,8 @@ export type Event = {
   createdAt: number;
   updatedAt: number;
   googleEventId?: string;
+  googleCalendarId?: string;
+  googleCalendarName?: string;
 };
 
 export type CustomHoliday = {

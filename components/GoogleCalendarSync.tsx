@@ -1,36 +1,63 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { googleCalendarService, GoogleCalendarEvent } from '@/lib/googleCalendar';
+import { googleCalendarService, GoogleCalendarEvent, GoogleCalendarListEntry } from '@/lib/googleCalendar';
 import { Event } from '@/lib/instant';
 import { v4 as uuidv4 } from 'uuid';
 import { useToast } from '@/contexts/ToastContext';
 
 interface GoogleCalendarSyncProps {
   year: number;
-  onImportEvents: (events: Partial<Event>[], categoryId: string) => void;
-  onDeleteGoogleEvents: (categoryId: string) => void;
-  googleCalendarCategoryId: string | null;
-  onCreateGoogleCategory: () => string;
+  onImportEvents: (events: Partial<Event>[]) => void;
+  onDeleteGoogleEvents: () => void;
+  onEnsureGoogleCalendarCategories: (calendars: GoogleCalendarListEntry[]) => Map<string, string>;
 }
 
 export default function GoogleCalendarSync({
   year,
   onImportEvents,
   onDeleteGoogleEvents,
-  googleCalendarCategoryId,
-  onCreateGoogleCategory
+  onEnsureGoogleCalendarCategories
 }: GoogleCalendarSyncProps) {
   const { showToast, showConfirm } = useToast();
   const [isSignedIn, setIsSignedIn] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [calendars, setCalendars] = useState<GoogleCalendarListEntry[]>([]);
+  const [selectedCalendarIds, setSelectedCalendarIds] = useState<string[]>([]);
 
   useEffect(() => {
     googleCalendarService.init().then(() => {
       setIsSignedIn(googleCalendarService.isSignedIn());
     });
   }, []);
+
+  useEffect(() => {
+    if (!isSignedIn) {
+      setCalendars([]);
+      setSelectedCalendarIds([]);
+      return;
+    }
+
+    const loadCalendars = async () => {
+      const list = await googleCalendarService.getCalendars();
+      setCalendars(list);
+
+      const defaultSelected = list
+        .filter((cal) => cal.primary || cal.selected)
+        .map((cal) => cal.id);
+
+      if (defaultSelected.length) {
+        setSelectedCalendarIds(defaultSelected);
+      } else {
+        setSelectedCalendarIds(list.map((cal) => cal.id));
+      }
+    };
+
+    loadCalendars().catch((error) => {
+      console.error('Failed to load calendars:', error);
+    });
+  }, [isSignedIn]);
 
   const handleSignIn = async () => {
     setIsLoading(true);
@@ -45,14 +72,12 @@ export default function GoogleCalendarSync({
       async () => {
         await googleCalendarService.signOut();
         setIsSignedIn(false);
+        setCalendars([]);
+        setSelectedCalendarIds([]);
 
         // Delete all Google Calendar events when disconnecting
-        if (googleCalendarCategoryId) {
-          onDeleteGoogleEvents(googleCalendarCategoryId);
-          showToast('Disconnected and removed Google Calendar events', 'info');
-        } else {
-          showToast('Disconnected from Google Calendar', 'info');
-        }
+        onDeleteGoogleEvents();
+        showToast('Disconnected and removed Google Calendar events', 'info');
       }
     );
   };
@@ -60,10 +85,16 @@ export default function GoogleCalendarSync({
   const handleSync = async () => {
     setIsSyncing(true);
     try {
-      // Create or get the Google Calendar category
-      const categoryId = googleCalendarCategoryId || onCreateGoogleCategory();
+      if (!selectedCalendarIds.length) {
+        showToast('Select at least one calendar to sync', 'error');
+        return;
+      }
 
-      const googleEvents = await googleCalendarService.fetchEvents(year);
+      const selectedCalendars = calendars.filter((cal) => selectedCalendarIds.includes(cal.id));
+      const calendarCategoryMap = onEnsureGoogleCalendarCategories(selectedCalendars);
+
+      const googleEvents = await googleCalendarService.fetchEvents(year, selectedCalendarIds);
+      const calendarNameById = new Map(calendars.map((cal) => [cal.id, cal.summary]));
 
       const convertedEvents: Partial<Event>[] = googleEvents.map((gEvent: GoogleCalendarEvent) => {
         const startDate = gEvent.start.date || gEvent.start.dateTime?.split('T')[0] || '';
@@ -74,21 +105,29 @@ export default function GoogleCalendarSync({
         const endTime = gEvent.end.dateTime
           ? new Date(gEvent.end.dateTime).toTimeString().slice(0, 5)
           : undefined;
+        const calendarName = gEvent.calendarId ? calendarNameById.get(gEvent.calendarId) : undefined;
+        const categoryId = gEvent.calendarId ? calendarCategoryMap.get(gEvent.calendarId) : undefined;
+
+        if (!categoryId) {
+          return null;
+        }
 
         return {
           id: uuidv4(),
           title: gEvent.summary || 'Untitled Event',
-          description: gEvent.description || `Imported from Google Calendar`,
+          description: gEvent.description || `Imported from Google Calendar${calendarName ? ` (${calendarName})` : ''}`,
           date: startDate,
           endDate: endDate !== startDate ? endDate : undefined,
           startTime,
           endTime,
-          categoryId: categoryId,
+          categoryId,
           googleEventId: gEvent.id,
+          googleCalendarId: gEvent.calendarId,
+          googleCalendarName: calendarName,
         };
-      });
+      }).filter((event): event is Partial<Event> => Boolean(event));
 
-      onImportEvents(convertedEvents, categoryId);
+      onImportEvents(convertedEvents);
       showToast(`Imported ${convertedEvents.length} events from Google Calendar`, 'success');
     } catch (error) {
       console.error('Sync error:', error);
@@ -129,6 +168,58 @@ export default function GoogleCalendarSync({
           >
             {isSyncing ? 'Syncing...' : '↻ Sync Google Calendar'}
           </button>
+          <details className="relative">
+            <summary className="px-3 py-2 bg-white border border-neutral-300 rounded-xl text-sm font-medium text-neutral-700 hover:bg-neutral-50 transition-all cursor-pointer">
+              Calendars ({selectedCalendarIds.length || 0})
+            </summary>
+            <div className="absolute right-0 mt-2 w-72 bg-white border border-neutral-200 rounded-xl shadow-lg p-3 z-10">
+              {calendars.length ? (
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedCalendarIds(calendars.map((cal) => cal.id))}
+                      className="text-xs text-blue-600 hover:text-blue-700"
+                    >
+                      Select all
+                    </button>
+                    <span className="text-xs text-neutral-400">/</span>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedCalendarIds([])}
+                      className="text-xs text-neutral-600 hover:text-neutral-700"
+                    >
+                      Select none
+                    </button>
+                  </div>
+                  <div className="flex flex-col gap-2 max-h-64 overflow-auto pr-1">
+                    {calendars.map((cal) => (
+                      <label key={cal.id} className="flex items-center gap-2 text-sm text-neutral-700">
+                        <input
+                          type="checkbox"
+                          className="rounded border-neutral-300 text-blue-600 focus:ring-blue-500"
+                          checked={selectedCalendarIds.includes(cal.id)}
+                          onChange={(event) => {
+                            if (event.target.checked) {
+                              setSelectedCalendarIds((prev) => Array.from(new Set([...prev, cal.id])));
+                            } else {
+                              setSelectedCalendarIds((prev) => prev.filter((id) => id !== cal.id));
+                            }
+                          }}
+                        />
+                        <span className="truncate">
+                          {cal.summary}
+                          {cal.primary ? ' (Primary)' : ''}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-sm text-neutral-500">Loading calendars...</div>
+              )}
+            </div>
+          </details>
           <button
             onClick={handleSignOut}
             className="px-3 py-2 bg-neutral-100 text-neutral-600 rounded-xl text-sm hover:bg-neutral-200 transition-all"
