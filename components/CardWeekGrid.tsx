@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useEffect, useRef } from 'react';
+import { useMemo, useLayoutEffect, useRef } from 'react';
 import { Category, CustomHoliday, DayNote, Event } from '@/lib/instant';
 import {
   formatDate,
@@ -53,6 +53,7 @@ export default function CardWeekGrid({
   quarter,
 }: CardWeekGridProps) {
   const weekRefs = useRef<Array<HTMLDivElement | null>>([]);
+  const hasAutoScrolledRef = useRef(false);
   const visibleEvents = useMemo(() => {
     return events.filter(event => visibleCategoryIds.has(event.categoryId));
   }, [events, visibleCategoryIds]);
@@ -141,7 +142,8 @@ export default function CardWeekGrid({
   }, [quarterWeekEvents]);
 
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    if (hasAutoScrolledRef.current) return;
     const today = new Date();
     if (today.getFullYear() !== year) return;
     const todayQuarter = getQuarterForDate(today);
@@ -156,8 +158,11 @@ export default function CardWeekGrid({
     const targetEl = weekRefs.current[targetIndex];
     if (!targetEl) return;
 
+    hasAutoScrolledRef.current = true;
     requestAnimationFrame(() => {
-      targetEl.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      requestAnimationFrame(() => {
+        targetEl.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      });
     });
   }, [quarterWeeks, quarter, todayKey, year]);
 
