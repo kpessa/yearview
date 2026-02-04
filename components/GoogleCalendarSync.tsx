@@ -96,7 +96,7 @@ export default function GoogleCalendarSync({
       const googleEvents = await googleCalendarService.fetchEvents(year, selectedCalendarIds);
       const calendarNameById = new Map(calendars.map((cal) => [cal.id, cal.summary]));
 
-      const convertedEvents: Partial<Event>[] = googleEvents.map((gEvent: GoogleCalendarEvent) => {
+      const convertedEvents = googleEvents.map((gEvent: GoogleCalendarEvent) => {
         const startDate = gEvent.start.date || gEvent.start.dateTime?.split('T')[0] || '';
         const endDate = gEvent.end.date || gEvent.end.dateTime?.split('T')[0] || '';
         const startTime = gEvent.start.dateTime
@@ -125,7 +125,7 @@ export default function GoogleCalendarSync({
           googleCalendarId: gEvent.calendarId,
           googleCalendarName: calendarName,
         };
-      }).filter((event): event is Partial<Event> => Boolean(event));
+      }).filter((event) => event !== null);
 
       onImportEvents(convertedEvents);
       showToast(`Imported ${convertedEvents.length} events from Google Calendar`, 'success');
