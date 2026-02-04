@@ -25,7 +25,10 @@ interface DayCellProps {
   showIndiaHolidays?: boolean;
   showLongWeekends?: boolean;
   showPastDatesAsGray?: boolean;
+  pastDateOpacityClass?: string;
+  currentDayAccentClass?: string;
 }
+
 
 export default function DayCell({
   date,
@@ -45,6 +48,8 @@ export default function DayCell({
   showIndiaHolidays = true,
   showLongWeekends = true,
   showPastDatesAsGray = true,
+  pastDateOpacityClass = 'opacity-50',
+  currentDayAccentClass = 'ring-2 ring-emerald-500 ring-inset shadow-[0_0_0_1px_rgba(16,185,129,0.35)]',
 }: DayCellProps) {
   const dayOfWeek = getDayOfWeek(date);
   const isCurrentDay = isToday(date);
@@ -89,6 +94,7 @@ export default function DayCell({
     showIndiaHolidays,
     showLongWeekends,
     showPastDatesAsGray,
+    pastDateOpacityClass,
   });
 
   // Determine text color based on priority
@@ -109,6 +115,8 @@ export default function DayCell({
     return baseTitle;
   };
 
+  const currentDayAccent = isCurrentDay ? currentDayAccentClass : '';
+
   return (
     <div
       onClick={() => onDayClick(date)}
@@ -122,7 +130,7 @@ export default function DayCell({
       className={`
         relative transition-colors duration-200 cursor-pointer
         h-full hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500
-        ${getBackgroundClass()}
+        ${getBackgroundClass()} ${currentDayAccent}
       `}
     >
       <div className="px-1 py-1">

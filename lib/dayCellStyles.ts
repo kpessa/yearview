@@ -9,7 +9,9 @@ interface DayCellStyleOptions {
   showIndiaHolidays?: boolean;
   showLongWeekends?: boolean;
   showPastDatesAsGray?: boolean;
+  pastDateOpacityClass?: string;
 }
+
 
 export function getDayCellBackgroundClass(
   date: Date,
@@ -20,6 +22,7 @@ export function getDayCellBackgroundClass(
     showIndiaHolidays = true,
     showLongWeekends = true,
     showPastDatesAsGray = true,
+    pastDateOpacityClass = 'opacity-50',
   }: DayCellStyleOptions,
 ): string {
   const isCurrentDay = isToday(date);
@@ -32,7 +35,7 @@ export function getDayCellBackgroundClass(
   const isExtendedWeekendDay = showLongWeekends && isExtendedWeekend(date, customHolidays, showUSHolidays, showIndiaHolidays);
   const dayNote = dayNotes.find(n => n.date === dateStr);
   const isHighlighted = dayNote?.isHighlighted;
-  const pastOpacity = isPast && showPastDatesAsGray && !isCurrentDay ? 'opacity-50' : '';
+  const pastOpacity = isPast && showPastDatesAsGray && !isCurrentDay ? pastDateOpacityClass : '';
 
   let backgroundClass = 'bg-white border-r border-neutral-100';
   if (isCurrentDay) backgroundClass = 'bg-green-50 border border-green-600';

@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useEffect, useRef } from 'react';
 import { Category, CustomHoliday, DayNote, Event } from '@/lib/instant';
 import {
   formatDate,
@@ -52,6 +52,7 @@ export default function CardWeekGrid({
   showPastDatesAsGray = true,
   quarter,
 }: CardWeekGridProps) {
+  const weekRefs = useRef<Array<HTMLDivElement | null>>([]);
   const visibleEvents = useMemo(() => {
     return events.filter(event => visibleCategoryIds.has(event.categoryId));
   }, [events, visibleCategoryIds]);
@@ -89,6 +90,7 @@ export default function CardWeekGrid({
   const suit = getSuitForQuarter(quarter);
   const suitColor = suit === '♥' || suit === '♦' ? 'text-red-600' : 'text-neutral-900';
   const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const todayKey = formatDate(new Date());
 
   const getEventsForDate = (date: Date) => {
     const dateStr = formatDate(date);
@@ -138,6 +140,27 @@ export default function CardWeekGrid({
     return maxEvents > 0 ? 20 + (maxEvents - 1) * 18 : 0;
   }, [quarterWeekEvents]);
 
+
+  useEffect(() => {
+    const today = new Date();
+    if (today.getFullYear() !== year) return;
+    const todayQuarter = getQuarterForDate(today);
+    if (todayQuarter !== quarter) return;
+
+    const todayWeekIndex = quarterWeeks.findIndex(week =>
+      week.dates.some(date => formatDate(date) === todayKey)
+    );
+    if (todayWeekIndex === -1) return;
+
+    const targetIndex = Math.max(0, todayWeekIndex - 2);
+    const targetEl = weekRefs.current[targetIndex];
+    if (!targetEl) return;
+
+    requestAnimationFrame(() => {
+      targetEl.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    });
+  }, [quarterWeeks, quarter, todayKey, year]);
+
   return (
     <div className="pb-6 space-y-0">
       <div className="card-week-header">
@@ -164,7 +187,13 @@ export default function CardWeekGrid({
         const eventStackHeight = maxWeekEventStackHeight;
 
         return (
-          <div key={`${week.start.toISOString()}-${index}`} className="card-week-stack">
+          <div
+            key={`${week.start.toISOString()}-${index}`}
+            className="card-week-stack"
+            ref={(el) => {
+              weekRefs.current[index] = el;
+            }}
+          >
             <div className="card-week-row">
               <div className="card-week-label">
                 <div className={`card-title text-base ${suitColor}`}>
@@ -212,6 +241,8 @@ export default function CardWeekGrid({
                           showIndiaHolidays={showIndiaHolidays}
                           showLongWeekends={showLongWeekends}
                           showPastDatesAsGray={showPastDatesAsGray}
+                          pastDateOpacityClass="opacity-40"
+                          currentDayAccentClass="ring-4 ring-emerald-600 ring-inset shadow-[0_0_0_2px_rgba(16,185,129,0.35)]"
                         />
                       </div>
                     );
@@ -236,6 +267,7 @@ export default function CardWeekGrid({
                               showIndiaHolidays,
                               showLongWeekends,
                               showPastDatesAsGray,
+                              pastDateOpacityClass: 'opacity-40',
                             })} ${isOutsideYear ? 'opacity-50' : ''}`}
                           />
                         );
