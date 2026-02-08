@@ -59,7 +59,7 @@ export default function CardWeekGrid({
   }, [events, visibleCategoryIds]);
 
   const weeks = useMemo<CardWeek[]>(() => {
-    const allWeeks = getWeeksInYear(year, 0);
+    const allWeeks: CardWeek[] = getWeeksInYear(year, 0).map(week => ({ ...week }));
     if (allWeeks.length <= 52) {
       const padded = [...allWeeks];
       while (padded.length < 52) {

@@ -1,13 +1,13 @@
 'use client';
 
-import { useCallback } from 'react';
+import { useCallback, useRef, useEffect } from 'react';
 import { db } from '@/lib/instant';
 import { v4 as uuidv4 } from 'uuid';
 import type { Event, Category, CustomHoliday, DayNote } from '@/lib/instant';
 import { useToast } from '@/contexts/ToastContext';
 import type { CalendarState } from './useCalendarState';
 import type { GoogleCalendarListEntry } from '@/lib/googleCalendar';
-import { getCalendarCategoryColor } from '@/lib/googleCalendar';
+import { getCalendarCategoryColor, googleCalendarService } from '@/lib/googleCalendar';
 
 export function useCalendarActions(
     state: CalendarState,
@@ -17,10 +17,56 @@ export function useCalendarActions(
     const { user } = db.useAuth();
     const { showToast, showConfirm } = useToast();
 
-    const handleSaveEvent = useCallback((eventData: Partial<Event>) => {
+    // Refs to keep callbacks stable and avoid infinite loops in effects
+    const eventsRef = useRef(events);
+    const categoriesRef = useRef(categories);
+    const stateRef = useRef(state);
+
+    useEffect(() => {
+        eventsRef.current = events;
+        categoriesRef.current = categories;
+        stateRef.current = state;
+    }, [events, categories, state]);
+
+    const handleSaveEvent = useCallback(async (eventData: Partial<Event>) => {
         if (!user) return;
 
         try {
+            let googleEventId = eventData.googleEventId;
+            let googleCalendarId = eventData.googleCalendarId;
+            let googleCalendarName = eventData.googleCalendarName;
+
+            // Check if the selected category is mapped to a Google Calendar
+            const category = categoriesRef.current.find(c => c.id === eventData.categoryId);
+            const targetGoogleCalendarId = category?.googleCalendarId;
+
+            // If we are signed in and the category is a Google Calendar, try to sync
+            if (googleCalendarService.isSignedIn() && targetGoogleCalendarId) {
+                const gEvent = {
+                    summary: eventData.title,
+                    description: eventData.description,
+                    start: eventData.startTime
+                        ? { dateTime: `${eventData.date}T${eventData.startTime}:00` }
+                        : { date: eventData.date },
+                    end: eventData.endTime
+                        ? { dateTime: `${eventData.endDate || eventData.date}T${eventData.endTime}:00` }
+                        : { date: eventData.endDate ? new Date(new Date(eventData.endDate).getTime() + 86400000).toISOString().split('T')[0] : new Date(new Date(eventData.date!).getTime() + 86400000).toISOString().split('T')[0] },
+                };
+
+                if (eventData.id && googleEventId && googleCalendarId === targetGoogleCalendarId) {
+                    // Update existing Google event
+                    await googleCalendarService.updateEvent(googleCalendarId, googleEventId, gEvent);
+                } else if (!googleEventId) {
+                    // Create new Google event
+                    const created = await googleCalendarService.insertEvent(targetGoogleCalendarId, gEvent);
+                    if (created) {
+                        googleEventId = created.id;
+                        googleCalendarId = targetGoogleCalendarId;
+                        googleCalendarName = category?.googleCalendarName;
+                    }
+                }
+            }
+
             if (eventData.id) {
                 // Update existing event
                 (db.transact as any)(
@@ -33,6 +79,9 @@ export function useCalendarActions(
                         endTime: eventData.endTime,
                         categoryId: eventData.categoryId!,
                         updatedAt: Date.now(),
+                        googleEventId,
+                        googleCalendarId,
+                        googleCalendarName,
                     })
                 );
                 showToast('Event updated successfully', 'success');
@@ -50,6 +99,9 @@ export function useCalendarActions(
                     userId: user.id,
                     createdAt: Date.now(),
                     updatedAt: Date.now(),
+                    googleEventId,
+                    googleCalendarId,
+                    googleCalendarName,
                 };
                 (db.transact as any)((db.tx as any).events[newEvent.id].update(newEvent));
                 showToast('Event created successfully', 'success');
@@ -60,8 +112,18 @@ export function useCalendarActions(
         }
     }, [user, showToast]);
 
-    const handleDeleteEvent = useCallback((eventId: string) => {
+    const handleDeleteEvent = useCallback(async (eventId: string) => {
         try {
+            const eventToDelete = eventsRef.current.find(e => e.id === eventId);
+            if (eventToDelete?.googleEventId && eventToDelete?.googleCalendarId && googleCalendarService.isSignedIn()) {
+                try {
+                    await googleCalendarService.deleteEvent(eventToDelete.googleCalendarId, eventToDelete.googleEventId);
+                } catch (e) {
+                    console.error("Failed to delete from Google Calendar", e);
+                    // We continue to delete locally even if Google fails
+                }
+            }
+
             (db.transact as any)((db.tx as any).events[eventId].delete());
             showToast('Event deleted', 'info');
         } catch (error) {
@@ -72,6 +134,7 @@ export function useCalendarActions(
 
     const handleSaveCategory = useCallback((categoryData: Partial<Category>) => {
         if (!user) return;
+        const state = stateRef.current;
 
         try {
             if (categoryData.id) {
@@ -102,9 +165,12 @@ export function useCalendarActions(
             showToast('Failed to save category', 'error');
             console.error('Error saving category:', error);
         }
-    }, [user, state, showToast]);
+    }, [user, showToast]);
 
     const handleDeleteCategory = useCallback((categoryId: string) => {
+        const events = eventsRef.current;
+        const state = stateRef.current;
+
         // Find events that belong to this category
         const categoryEvents = events.filter(e => e.categoryId === categoryId);
         const eventCount = categoryEvents.length;
@@ -138,10 +204,11 @@ export function useCalendarActions(
                 console.error('Error deleting category:', error);
             }
         });
-    }, [events, state, showToast, showConfirm]);
+    }, [showToast, showConfirm]);
 
     const handleImportGoogleEvents = useCallback((googleEvents: Partial<Event>[]) => {
         if (!user) return;
+        const events = eventsRef.current;
 
         try {
             let addedCount = 0;
@@ -226,11 +293,13 @@ export function useCalendarActions(
             showToast('Failed to import Google Calendar events', 'error');
             console.error('Error importing events:', error);
         }
-    }, [user, events, showToast]);
+    }, [user, showToast]);
 
     const handleEnsureGoogleCalendarCategories = useCallback((calendars: GoogleCalendarListEntry[]) => {
         const map = new Map<string, string>();
         if (!user) return map;
+        const categories = categoriesRef.current;
+        const state = stateRef.current;
 
         const existingByCalendarId = new Map(
             categories
@@ -264,10 +333,13 @@ export function useCalendarActions(
         });
 
         return map;
-    }, [user, categories, state]);
+    }, [user]);
 
     const handleEnsureGoogleCategoriesFromEvents = useCallback(() => {
         if (!user) return;
+        const events = eventsRef.current;
+        const categories = categoriesRef.current;
+        const state = stateRef.current;
 
         const googleEvents = events.filter(event => event.googleCalendarId);
         if (googleEvents.length === 0) return;
@@ -322,10 +394,13 @@ export function useCalendarActions(
                 })
             );
         });
-    }, [user, events, categories, state]);
+    }, [user]);
 
     const handleDeduplicateGoogleEvents = useCallback(() => {
         if (!user) return;
+        const events = eventsRef.current;
+        const categories = categoriesRef.current;
+
         if (events.length === 0) return;
 
         const googleCategoryIds = new Set(
@@ -373,9 +448,10 @@ export function useCalendarActions(
 
         byGoogleId.forEach(deleteDuplicates);
         byExactSignature.forEach(deleteDuplicates);
-    }, [user, events, categories]);
+    }, [user]);
 
     const handleToggleCategory = useCallback((categoryId: string) => {
+        const state = stateRef.current;
         state.setVisibleCategoryIds(prev => {
             const newSet = new Set(prev);
             if (newSet.has(categoryId)) {
@@ -385,51 +461,63 @@ export function useCalendarActions(
             }
             return newSet;
         });
-    }, [state]);
+    }, []);
 
     const handleDayClick = useCallback((date: Date) => {
+        const state = stateRef.current;
         state.setSelectedDate(date);
         state.setIsDayDetailModalOpen(true);
-    }, [state]);
+    }, []);
 
     const handleAddEvent = useCallback(() => {
+        const state = stateRef.current;
         state.setSelectedEvent(null);
         state.setIsEventModalOpen(true);
-    }, [state]);
+    }, []);
 
     const handleEditEvent = useCallback((event: Event) => {
+        const state = stateRef.current;
         state.setSelectedEvent(event);
         state.setIsEventModalOpen(true);
         state.setIsDayDetailModalOpen(false);
-    }, [state]);
+    }, []);
 
     const handleAddCategory = useCallback(() => {
+        const state = stateRef.current;
         state.setSelectedCategory(null);
         state.setIsCategoryModalOpen(true);
-    }, [state]);
+    }, []);
 
     const handleEditCategory = useCallback((category: Category) => {
+        const state = stateRef.current;
         state.setSelectedCategory(category);
         state.setIsCategoryModalOpen(true);
-    }, [state]);
+    }, []);
 
     const handleCloseEventModal = useCallback(() => {
+        const state = stateRef.current;
         state.setIsEventModalOpen(false);
         state.setSelectedEvent(null);
-    }, [state]);
+    }, []);
 
     const handleCloseCategoryModal = useCallback(() => {
+        const state = stateRef.current;
         state.setIsCategoryModalOpen(false);
         state.setSelectedCategory(null);
-    }, [state]);
+    }, []);
 
     const handleCloseDayDetailModal = useCallback(() => {
+        const state = stateRef.current;
         state.setIsDayDetailModalOpen(false);
         state.setSelectedDate(null);
-    }, [state]);
+    }, []);
 
     const handleDeleteGoogleEvents = useCallback(() => {
         try {
+            const events = eventsRef.current;
+            const categories = categoriesRef.current;
+            const state = stateRef.current;
+
             // Delete all events linked to Google calendars
             const googleEvents = events.filter(e => e.googleCalendarId);
             googleEvents.forEach(event => {
@@ -450,7 +538,7 @@ export function useCalendarActions(
         } catch (error) {
             console.error('Error deleting Google Calendar events:', error);
         }
-    }, [events, categories, state]);
+    }, []);
 
     const handleSaveCustomHoliday = useCallback((holidayData: Partial<CustomHoliday>) => {
         if (!user) return;

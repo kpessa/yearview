@@ -52,4 +52,4 @@ export type DayNote = {
 };
 
 // Initialize InstantDB (without schema for now - schema is managed in InstantDB dashboard)
-export const db = init({ appId: APP_ID });
+export const db = init({ appId: APP_ID, devtool: false });

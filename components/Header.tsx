@@ -93,17 +93,15 @@ export default function Header({
             <div className="flex items-center bg-neutral-100 rounded-xl p-1">
               <button
                 onClick={() => onViewModeChange('year')}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                  viewMode === 'year' ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-600'
-                }`}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${viewMode === 'year' ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-600'
+                  }`}
               >
                 Year
               </button>
               <button
                 onClick={() => onViewModeChange('cards')}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                  viewMode === 'cards' ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-600'
-                }`}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${viewMode === 'cards' ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-600'
+                  }`}
               >
                 Cards
               </button>
@@ -194,17 +192,15 @@ export default function Header({
                 <div className="flex items-center bg-neutral-100 rounded-xl p-1">
                   <button
                     onClick={() => onViewModeChange('year')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                      viewMode === 'year' ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-600'
-                    }`}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${viewMode === 'year' ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-600'
+                      }`}
                   >
                     Year
                   </button>
                   <button
                     onClick={() => onViewModeChange('cards')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                      viewMode === 'cards' ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-600'
-                    }`}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${viewMode === 'cards' ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-600'
+                      }`}
                   >
                     Cards
                   </button>
@@ -299,6 +295,7 @@ export default function Header({
               onImportEvents={onImportEvents}
               onDeleteGoogleEvents={onDeleteGoogleEvents}
               onEnsureGoogleCalendarCategories={onEnsureGoogleCalendarCategories}
+              userEmail={user?.email || undefined}
             />
             <button
               onClick={onOpenDisplayOptions}

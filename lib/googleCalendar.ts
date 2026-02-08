@@ -14,7 +14,10 @@ export interface GoogleCalendarEvent {
 interface TokenResponse {
   access_token: string;
   expires_in: number;
+  scope?: string;
 }
+
+
 
 export interface GoogleCalendarListEntry {
   id: string;
@@ -42,7 +45,7 @@ export class GoogleCalendarService {
       script.onload = () => {
         this.tokenClient = (window as any).google.accounts.oauth2.initTokenClient({
           client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
-          scope: 'https://www.googleapis.com/auth/calendar.readonly',
+          scope: 'https://www.googleapis.com/auth/calendar',
           callback: (response: TokenResponse) => {
             if (response.access_token) {
               this.accessToken = response.access_token;
@@ -60,7 +63,7 @@ export class GoogleCalendarService {
   async signIn(): Promise<boolean> {
     try {
       await this.init();
-      
+
       return new Promise((resolve) => {
         // Override callback for this specific request
         this.tokenClient.callback = (response: TokenResponse) => {
@@ -71,7 +74,7 @@ export class GoogleCalendarService {
             resolve(false);
           }
         };
-        
+
         // Request access token
         this.tokenClient.requestAccessToken({ prompt: 'consent' });
       });
@@ -108,34 +111,99 @@ export class GoogleCalendarService {
       const timeMin = new Date(year, 0, 1).toISOString();
       const timeMax = new Date(year, 11, 31, 23, 59, 59).toISOString();
 
-      const responses = await Promise.all(
-        calendarIds.map(async (calendarId) => {
-          const response = await fetch(
-            `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?` +
-            `timeMin=${encodeURIComponent(timeMin)}&` +
-            `timeMax=${encodeURIComponent(timeMax)}&` +
-            `showDeleted=false&` +
-            `singleEvents=true&` +
-            `orderBy=startTime`,
-            {
-              headers: {
-                Authorization: `Bearer ${this.accessToken}`,
-              },
+      const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+      const MAX_RETRIES = 3;
+      const results: GoogleCalendarEvent[][] = [];
+
+      for (const calendarId of calendarIds) {
+        let retries = 0;
+        let success = false;
+
+        while (!success && retries < MAX_RETRIES) {
+          try {
+            // Add a small delay between requests to avoid burst limit
+            if (results.length > 0 && retries === 0) await delay(200);
+
+            console.log(`Fetching events for calendar: ${calendarId} (Attempt ${retries + 1})`);
+            const response = await fetch(
+              `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?` +
+              `timeMin=${encodeURIComponent(timeMin)}&` +
+              `timeMax=${encodeURIComponent(timeMax)}&` +
+              `showDeleted=false&` +
+              `singleEvents=true&` +
+              `orderBy=startTime`,
+              {
+                headers: {
+                  Authorization: `Bearer ${this.accessToken}`,
+                },
+              }
+            );
+
+            if (!response.ok) {
+              const errorBody = await response.text();
+              console.error(`Failed to fetch events for calendar ${calendarId}: ${response.status} ${response.statusText}`, errorBody);
+
+              let isRateLimit = false;
+              try {
+                const errorJson = JSON.parse(errorBody);
+                if (errorJson.error?.errors?.[0]?.reason === 'rateLimitExceeded' ||
+                  errorBody.includes('Queries per minute') ||
+                  response.status === 403) {
+                  isRateLimit = true;
+                  console.warn('Rate limit exceeded for Google Calendar API');
+                }
+              } catch (e) {
+                if (response.status === 403) isRateLimit = true;
+              }
+
+              if (isRateLimit && retries < MAX_RETRIES - 1) {
+                const backoff = 1000 * Math.pow(2, retries);
+                console.warn(`Rate limit hit for ${calendarId}. Retrying in ${backoff}ms...`);
+                await delay(backoff);
+                retries++;
+                continue;
+              }
+
+              throw new Error(`Failed to fetch events for calendar ${calendarId}: ${response.status} ${response.statusText} - ${errorBody}`);
             }
-          );
 
-          if (!response.ok) {
-            throw new Error(`Failed to fetch events for calendar ${calendarId}`);
+            const data = await response.json();
+            const items: GoogleCalendarEvent[] = data.items || [];
+            results.push(items.map((item) => ({
+              ...item,
+              calendarId,
+            })));
+            success = true;
+
+          } catch (error) {
+            // If we caught an error that was NOT handled by the retry logic (e.g. non-retriable error or max retries exceeded)
+            // But wait, the `throw new Error` above is caught here.
+            // Check if we should retry based on error type if we didn't already
+            // If we already retried and failed, or if it's not a fetch/rate-limit error, we might want to give up on THIS calendar but continue others?
+            // Or fail the whole batch? Original behavior was fail whole batch. Let's stick to fail whole batch for now to avoid partial state issues unless robust.
+            // However, the `continue` above inside the catch would be tricky. 
+            // My loop structure: try { fetch... if error throw } catch { check retry }
+
+            // Actually, the `continue` inside `try` block (after await delay) works for the `while` loop.
+            // But if I throw inside `try`, I go to `catch`.
+
+            // Let's refactor the loop slightly to be cleaner.
+
+            if (retries >= MAX_RETRIES - 1) throw error; // Re-throw if max retries
+            // If it was a thrown Error from response !ok, we already handled retry logic inside `try` essentially? 
+            // No, the `if (isRateLimit)` block executed `continue`. `continue` in `try` works? Yes.
+            // But `throw` happens if `!isRateLimit` or retries exhausted.
+            // So if we are in `catch`, it's network error or thrown error.
+
+            // If it's a network error (fetch failed), we might want to retry.
+            console.warn(`Network or other error fetching ${calendarId}, retrying...`, error);
+            await delay(1000 * Math.pow(2, retries));
+            retries++;
           }
+        }
+      }
 
-          const data = await response.json();
-          const items: GoogleCalendarEvent[] = data.items || [];
-          return items.map((item) => ({
-            ...item,
-            calendarId,
-          }));
-        })
-      );
+      const responses = results;
 
       const merged = responses.flat();
       const uniqueById = new Map<string, GoogleCalendarEvent>();
@@ -169,7 +237,9 @@ export class GoogleCalendarService {
       );
 
       if (!response.ok) {
-        throw new Error('Failed to fetch calendars');
+        const errorBody = await response.text();
+        console.error('Calendar API Error Body:', errorBody);
+        throw new Error(`Failed to fetch calendars: ${response.status} ${response.statusText} - ${errorBody}`);
       }
 
       const data = await response.json();
@@ -177,6 +247,124 @@ export class GoogleCalendarService {
     } catch (error) {
       console.error('Error fetching calendars:', error);
       return [];
+    }
+  }
+  async trySilentSignIn(email?: string): Promise<boolean> {
+    try {
+      await this.init();
+
+      return new Promise((resolve) => {
+        // Override callback for this specific request
+        this.tokenClient.callback = (response: TokenResponse) => {
+          const hasScope = response.scope && response.scope.includes('https://www.googleapis.com/auth/calendar');
+
+          if (response.access_token && hasScope) {
+            console.log('Silent sign-in successful. Scope:', response.scope);
+            this.accessToken = response.access_token;
+            resolve(true);
+          } else {
+            console.warn('Silent sign-in failed or missing scope.', {
+              hasToken: !!response.access_token,
+              scope: response.scope,
+              expectedScope: 'https://www.googleapis.com/auth/calendar'
+            });
+            resolve(false);
+          }
+        };
+
+        // Attempt silent sign-in
+        try {
+          this.tokenClient.requestAccessToken({
+            prompt: 'none',
+            hint: email || undefined,
+            login_hint: email || undefined // Try both just in case
+          });
+        } catch (e) {
+          resolve(false);
+        }
+      });
+    } catch (error) {
+      console.error('Silent sign in error:', error);
+      return false;
+    }
+  }
+
+  async insertEvent(calendarId: string, event: Partial<GoogleCalendarEvent>): Promise<GoogleCalendarEvent | null> {
+    if (!this.accessToken) throw new Error('Not signed in');
+
+    try {
+      const response = await fetch(
+        `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${this.accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(event),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to insert event');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error inserting event:', error);
+      return null;
+    }
+  }
+
+  async updateEvent(calendarId: string, eventId: string, event: Partial<GoogleCalendarEvent>): Promise<GoogleCalendarEvent | null> {
+    if (!this.accessToken) throw new Error('Not signed in');
+
+    try {
+      const response = await fetch(
+        `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}`,
+        {
+          method: 'PATCH',
+          headers: {
+            Authorization: `Bearer ${this.accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(event),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to update event');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error updating event:', error);
+      return null;
+    }
+  }
+
+  async deleteEvent(calendarId: string, eventId: string): Promise<boolean> {
+    if (!this.accessToken) throw new Error('Not signed in');
+
+    try {
+      const response = await fetch(
+        `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}`,
+        {
+          method: 'DELETE',
+          headers: {
+            Authorization: `Bearer ${this.accessToken}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to delete event');
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error deleting event:', error);
+      return false;
     }
   }
 }

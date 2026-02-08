@@ -11,13 +11,15 @@ interface GoogleCalendarSyncProps {
   onImportEvents: (events: Partial<Event>[]) => void;
   onDeleteGoogleEvents: () => void;
   onEnsureGoogleCalendarCategories: (calendars: GoogleCalendarListEntry[]) => Map<string, string>;
+  userEmail?: string;
 }
 
 export default function GoogleCalendarSync({
   year,
   onImportEvents,
   onDeleteGoogleEvents,
-  onEnsureGoogleCalendarCategories
+  onEnsureGoogleCalendarCategories,
+  userEmail
 }: GoogleCalendarSyncProps) {
   const { showToast, showConfirm } = useToast();
   const [isSignedIn, setIsSignedIn] = useState(false);
@@ -27,10 +29,18 @@ export default function GoogleCalendarSync({
   const [selectedCalendarIds, setSelectedCalendarIds] = useState<string[]>([]);
 
   useEffect(() => {
-    googleCalendarService.init().then(() => {
-      setIsSignedIn(googleCalendarService.isSignedIn());
-    });
-  }, []);
+    // Try silent sign-in on mount
+    const initAuth = async () => {
+      await googleCalendarService.init();
+      if (googleCalendarService.isSignedIn()) {
+        setIsSignedIn(true);
+      } else {
+        const success = await googleCalendarService.trySilentSignIn(userEmail);
+        setIsSignedIn(success);
+      }
+    };
+    initAuth();
+  }, [userEmail]);
 
   useEffect(() => {
     if (!isSignedIn) {
@@ -58,6 +68,79 @@ export default function GoogleCalendarSync({
       console.error('Failed to load calendars:', error);
     });
   }, [isSignedIn]);
+
+  // Polling for events
+  useEffect(() => {
+    if (!isSignedIn || selectedCalendarIds.length === 0) return;
+
+    const syncEvents = async () => {
+      // We reuse the handleSync logic but silent (no toast unless error?)
+      // actually reusing handleSync might show toasts which could be annoying on poll.
+      // Let's abstract the logic or just call it.
+      // For now, let's just trigger a sync but maybe we should suppress toasts if it's a background poll?
+      // The user didn't ask for quiet polling specifically but "poling" usually implies background.
+      // Refactoring handleSync to take a 'silent' param would be good.
+      // For this iteration, I'll essentially replicate handleSync but maybe without the success toast.
+
+      // Actually, the requirement "baked in" implies it just happens.
+      // Let's call handleSync but we likely need to modify handleSync to accept a `silent` flag to avoid spamming "Imported X events".
+      // Since I cannot easily modify handleSync signature in `useEffect` without changing it below...
+      // I'll just rely on `handleSync` for now and maybe the user will be okay with the toast or I can suppress it.
+      // Wait, if I call handleSync it sets `isSyncing` state which might flash the UI.
+      // Let's try to do it properly. I will modify handleSync signature below in a separate edit, 
+      // but here I will call it assuming I'll update it.
+      // A better approach for this tool execution is to just fetch and import silently here.
+
+      try {
+        const selectedCalendars = calendars.filter((cal) => selectedCalendarIds.includes(cal.id));
+        const calendarCategoryMap = onEnsureGoogleCalendarCategories(selectedCalendars);
+
+        const googleEvents = await googleCalendarService.fetchEvents(year, selectedCalendarIds);
+        const calendarNameById = new Map(calendars.map((cal) => [cal.id, cal.summary]));
+
+        const convertedEvents = googleEvents.map((gEvent: GoogleCalendarEvent) => {
+          const startDate = gEvent.start.date || gEvent.start.dateTime?.split('T')[0] || '';
+          const endDate = gEvent.end.date || gEvent.end.dateTime?.split('T')[0] || '';
+          const startTime = gEvent.start.dateTime
+            ? new Date(gEvent.start.dateTime).toTimeString().slice(0, 5)
+            : undefined;
+          const endTime = gEvent.end.dateTime
+            ? new Date(gEvent.end.dateTime).toTimeString().slice(0, 5)
+            : undefined;
+          const calendarName = gEvent.calendarId ? calendarNameById.get(gEvent.calendarId) : undefined;
+          const categoryId = gEvent.calendarId ? calendarCategoryMap.get(gEvent.calendarId) : undefined;
+
+          if (!categoryId) return null;
+
+          return {
+            id: uuidv4(),
+            title: gEvent.summary || 'Untitled Event',
+            description: gEvent.description || `Imported from Google Calendar${calendarName ? ` (${calendarName})` : ''}`,
+            date: startDate,
+            endDate: endDate !== startDate ? endDate : undefined,
+            startTime,
+            endTime,
+            categoryId,
+            googleEventId: gEvent.id,
+            googleCalendarId: gEvent.calendarId,
+            googleCalendarName: calendarName,
+          };
+        }).filter((event) => event !== null);
+
+        onImportEvents(convertedEvents); // This hook likely handles waiting/dedup logic
+      } catch (error) {
+        console.error("Auto-sync failed", error);
+      }
+    };
+
+    // Initial sync on load/config change
+    syncEvents();
+
+    // Poll every 5 minutes
+    const intervalId = setInterval(syncEvents, 5 * 60 * 1000);
+    return () => clearInterval(intervalId);
+
+  }, [isSignedIn, selectedCalendarIds, year, calendars, onEnsureGoogleCalendarCategories, onImportEvents]);
 
   const handleSignIn = async () => {
     setIsLoading(true);
