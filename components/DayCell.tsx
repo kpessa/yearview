@@ -137,117 +137,123 @@ export default function DayCell({
       `}
     >
       <div className="px-1 py-1">
-          <div className={`text-[10px] font-normal ${getTextClass()}`}>
-            <div className="flex items-start justify-between">
-              <span>{date.getDate()}</span>
-              <span className="text-[8px] opacity-60">{dayOfWeek}</span>
+        <div className={`text-[10px] font-normal ${getTextClass()}`}>
+          <div className="flex items-start justify-between">
+            <span>{date.getDate()}</span>
+            <span className="text-[8px] opacity-60">{dayOfWeek}</span>
+          </div>
+          {showEventCountBadge && dayEvents.length > 0 && (
+            <div className="mt-0.5 flex justify-end">
+              <span className="px-1.5 py-0.5 rounded-full bg-neutral-200 text-[8px] text-neutral-600 leading-none">
+                {dayEvents.length}
+              </span>
             </div>
-            {showEventCountBadge && dayEvents.length > 0 && (
-              <div className="mt-0.5 flex justify-end">
-                <span className="px-1.5 py-0.5 rounded-full bg-neutral-200 text-[8px] text-neutral-600 leading-none">
-                  {dayEvents.length}
-                </span>
+          )}
+          {(dayNote?.note || holidayName) && (
+            <div className={`text-[7px] font-medium truncate mt-0.5 leading-tight ${dayNote?.note ? 'text-blue-700' : 'text-red-600'}`}>
+              {dayNote?.note || holidayName}
+            </div>
+          )}
+          {showSingleDayChips && singleDayEvents.length > 0 && (
+            separateAllDayAndTimed ? (
+              <div
+                className={`mt-0.5 day-chip-stack ${chipsBelowBars ? 'day-chip-stack--lower' : ''} ${allDayEvents.length > 0 && timedEvents.length > 0 ? 'gap-1' : ''}`}
+              >
+                {allDayEvents.length > 0 && (
+                  <div className="day-chip-group space-y-0.5">
+                    {allDayEvents.slice(0, 2).map(event => {
+                      const category = categories.find(c => c.id === event.categoryId);
+                      const categoryOpacity = normalizeOpacity(category?.opacity);
+                      const color = category ? toRgba(category.color, categoryOpacity) : '#9ca3af';
+                      return (
+                        <div
+                          key={event.id}
+                          className="flex items-center gap-1.5 px-1 py-0.5 rounded hover:bg-neutral-100 transition-colors cursor-pointer group/event"
+                          onClick={(e) => {
+                            if (!onEventClick) return;
+                            e.stopPropagation();
+                            onEventClick(event);
+                          }}
+                          title={event.title}
+                        >
+                          <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
+                          <span className="text-[9px] font-medium text-neutral-700 truncate leading-tight group-hover/event:text-neutral-900">{event.title}</span>
+                        </div>
+                      );
+                    })}
+                    {allDayEvents.length > 2 && (
+                      <span className="text-[8px] text-neutral-400 pl-1">+{allDayEvents.length - 2} more</span>
+                    )}
+                  </div>
+                )}
+                {timedEvents.length > 0 && (
+                  <div className="day-chip-group space-y-0.5">
+                    {timedEvents.slice(0, 2).map(event => {
+                      const category = categories.find(c => c.id === event.categoryId);
+                      const categoryOpacity = normalizeOpacity(category?.opacity);
+                      const color = category ? toRgba(category.color, categoryOpacity) : '#9ca3af';
+                      return (
+                        <div
+                          key={event.id}
+                          className="flex items-center gap-1 px-1 py-0.5 rounded hover:bg-neutral-100 transition-colors cursor-pointer group/event"
+                          onClick={(e) => {
+                            if (!onEventClick) return;
+                            e.stopPropagation();
+                            onEventClick(event);
+                          }}
+                          title={event.title}
+                        >
+                          <div className="w-1 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
+                          {event.startTime && (
+                            <span className="text-[8px] text-neutral-500 tabular-nums leading-none">{event.startTime}</span>
+                          )}
+                          <span className="text-[9px] font-medium text-neutral-700 truncate leading-tight group-hover/event:text-neutral-900">{event.title}</span>
+                        </div>
+                      );
+                    })}
+                    {timedEvents.length > 2 && (
+                      <span className="text-[8px] text-neutral-400 pl-1">+{timedEvents.length - 2} more</span>
+                    )}
+                  </div>
+                )}
               </div>
-            )}
-            {(dayNote?.note || holidayName) && (
-              <div className={`text-[7px] font-medium truncate mt-0.5 leading-tight ${dayNote?.note ? 'text-blue-700' : 'text-red-600'}`}>
-                {dayNote?.note || holidayName}
+            ) : (
+              <div className={`mt-0.5 space-y-0.5 day-chip-stack ${chipsBelowBars ? 'day-chip-stack--lower' : ''}`}>
+                {singleDayEvents.slice(0, 3).map(event => {
+                  const category = categories.find(c => c.id === event.categoryId);
+                  const categoryOpacity = normalizeOpacity(category?.opacity);
+                  const color = category ? toRgba(category.color, categoryOpacity) : '#9ca3af';
+                  const isTimed = !!event.startTime;
+
+                  return (
+                    <div
+                      key={event.id}
+                      className="flex items-center gap-1 px-1 py-0.5 rounded hover:bg-neutral-100 transition-colors cursor-pointer group/event"
+                      onClick={(e) => {
+                        if (!onEventClick) return;
+                        e.stopPropagation();
+                        onEventClick(event);
+                      }}
+                      title={event.title}
+                    >
+                      {isTimed ? (
+                        <div className="w-1 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
+                      ) : (
+                        <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
+                      )}
+                      {isTimed && event.startTime && (
+                        <span className="text-[8px] text-neutral-500 tabular-nums leading-none">{event.startTime}</span>
+                      )}
+                      <span className="text-[9px] font-medium text-neutral-700 truncate leading-tight group-hover/event:text-neutral-900">{event.title}</span>
+                    </div>
+                  );
+                })}
+                {singleDayEvents.length > 3 && (
+                  <span className="text-[8px] text-neutral-400 pl-1">+{singleDayEvents.length - 3} more</span>
+                )}
               </div>
-            )}
-            {showSingleDayChips && singleDayEvents.length > 0 && (
-              separateAllDayAndTimed ? (
-                <div
-                  className={`mt-0.5 day-chip-stack ${chipsBelowBars ? 'day-chip-stack--lower' : ''} ${allDayEvents.length > 0 && timedEvents.length > 0 ? 'day-chip-stack--split' : ''}`}
-                >
-                  {allDayEvents.length > 0 && (
-                    <div className="day-chip-group">
-                      {allDayEvents.slice(0, 2).map(event => {
-                        const category = categories.find(c => c.id === event.categoryId);
-                        const categoryOpacity = normalizeOpacity(category?.opacity);
-                        return (
-                          <button
-                            key={event.id}
-                            type="button"
-                            className="day-chip"
-                            style={{
-                              backgroundColor: category ? toRgba(category.color, categoryOpacity) : '#9ca3af',
-                            }}
-                            onClick={(e) => {
-                              if (!onEventClick) return;
-                              e.stopPropagation();
-                              onEventClick(event);
-                            }}
-                            title={event.title}
-                          >
-                            {formatTimeRange(event)} {event.title}
-                          </button>
-                        );
-                      })}
-                      {allDayEvents.length > 2 && (
-                        <span className="text-[7px] text-neutral-500">+{allDayEvents.length - 2}</span>
-                      )}
-                    </div>
-                  )}
-                  {timedEvents.length > 0 && (
-                    <div className="day-chip-group">
-                      {timedEvents.slice(0, 2).map(event => {
-                        const category = categories.find(c => c.id === event.categoryId);
-                        const categoryOpacity = normalizeOpacity(category?.opacity);
-                        return (
-                          <button
-                            key={event.id}
-                            type="button"
-                            className="day-chip"
-                            style={{
-                              backgroundColor: category ? toRgba(category.color, categoryOpacity) : '#9ca3af',
-                            }}
-                            onClick={(e) => {
-                              if (!onEventClick) return;
-                              e.stopPropagation();
-                              onEventClick(event);
-                            }}
-                            title={event.title}
-                          >
-                            {formatTimeRange(event)} {event.title}
-                          </button>
-                        );
-                      })}
-                      {timedEvents.length > 2 && (
-                        <span className="text-[7px] text-neutral-500">+{timedEvents.length - 2}</span>
-                      )}
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className={`mt-0.5 space-y-0.5 day-chip-stack ${chipsBelowBars ? 'day-chip-stack--lower' : ''}`}>
-                  {singleDayEvents.slice(0, 2).map(event => {
-                    const category = categories.find(c => c.id === event.categoryId);
-                    const categoryOpacity = normalizeOpacity(category?.opacity);
-                    return (
-                      <button
-                        key={event.id}
-                        type="button"
-                        className="day-chip"
-                        style={{
-                          backgroundColor: category ? toRgba(category.color, categoryOpacity) : '#9ca3af',
-                        }}
-                        onClick={(e) => {
-                          if (!onEventClick) return;
-                          e.stopPropagation();
-                          onEventClick(event);
-                        }}
-                        title={event.title}
-                      >
-                        {formatTimeRange(event)} {event.title}
-                      </button>
-                    );
-                  })}
-                  {singleDayEvents.length > 2 && (
-                    <span className="text-[7px] text-neutral-500">+{singleDayEvents.length - 2}</span>
-                  )}
-                </div>
-              )
-            )}
+            )
+          )}
           {dayEvents.length > 0 && (
             showEventDots ? (
               <div className="mt-0.5 flex items-center gap-0.5 flex-wrap">

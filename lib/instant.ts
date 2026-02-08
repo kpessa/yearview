@@ -21,9 +21,9 @@ export type Event = {
   title: string;
   description?: string;
   date: string; // ISO date string (YYYY-MM-DD) - start date
-  endDate?: string; // ISO date string (YYYY-MM-DD) - end date (optional)
-  startTime?: string; // Local time (HH:MM)
-  endTime?: string; // Local time (HH:MM)
+  endDate?: string | null; // ISO date string (YYYY-MM-DD) - end date (optional)
+  startTime?: string | null; // Local time (HH:MM)
+  endTime?: string | null; // Local time (HH:MM)
   categoryId: string;
   userId: string;
   createdAt: number;

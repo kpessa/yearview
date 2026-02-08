@@ -226,7 +226,7 @@ export default function CardWeekGrid({
         let isFutureGroup = false;
 
         if (todayIndex !== -1) {
-          if (index < todayIndex) {
+          if (index < todayIndex - 1) {
             // Past
             if (isPastCollapsed) isVisible = false;
             isPastGroup = true;

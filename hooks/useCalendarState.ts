@@ -58,7 +58,26 @@ export function useCalendarState(): CalendarState {
     const currentYear = new Date().getFullYear();
 
     const [selectedYear, setSelectedYear] = useState(currentYear);
-    const [visibleCategoryIds, setVisibleCategoryIds] = useState<Set<string>>(new Set());
+    const [visibleCategoryIds, setVisibleCategoryIds] = useState<Set<string>>(() => {
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem('yearview_visible_categories');
+            if (saved) {
+                try {
+                    return new Set(JSON.parse(saved));
+                } catch (e) {
+                    console.error('Failed to parse visible categories', e);
+                }
+            }
+        }
+        return new Set();
+    });
+
+    // Persist visible categories
+    useEffect(() => {
+        if (visibleCategoryIds.size > 0) {
+            localStorage.setItem('yearview_visible_categories', JSON.stringify(Array.from(visibleCategoryIds)));
+        }
+    }, [visibleCategoryIds]);
     const [isEventModalOpen, setIsEventModalOpen] = useState(false);
     const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
     const [isDayDetailModalOpen, setIsDayDetailModalOpen] = useState(false);
@@ -187,9 +206,17 @@ export function useVisibleCategoriesInit(
     setVisibleCategoryIds: React.Dispatch<React.SetStateAction<Set<string>>>
 ) {
     // Initialize visible categories when categories load
+    // Initialize visible categories when categories load
     useEffect(() => {
-        if (categories.length > 0 && visibleCategoryIds.size === 0) {
-            setVisibleCategoryIds(new Set(categories.map(c => c.id)));
+        if (categories.length > 0) {
+            // Only auto-select all if:
+            // 1. We haven't set any visible categories yet (size === 0)
+            // 2. AND there represents no saved preference in localStorage (user hasn't explicitly unchecked all)
+            const hasSavedPreference = typeof window !== 'undefined' && localStorage.getItem('yearview_visible_categories') !== null;
+
+            if (visibleCategoryIds.size === 0 && !hasSavedPreference) {
+                setVisibleCategoryIds(new Set(categories.map(c => c.id)));
+            }
         }
     }, [categories, visibleCategoryIds.size, setVisibleCategoryIds]);
 }

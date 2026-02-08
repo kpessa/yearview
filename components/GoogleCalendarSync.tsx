@@ -15,6 +15,64 @@ interface GoogleCalendarSyncProps {
   isSidebar?: boolean;
 }
 
+// Helper to convert Google Event to Local Event
+function convertGoogleEventToLocal(
+  gEvent: GoogleCalendarEvent,
+  calendarNameById: Map<string, string | undefined>,
+  calendarCategoryMap: Map<string, string>
+): Partial<Event> | null {
+  const startDate = gEvent.start.date || (gEvent.start.dateTime ? new Date(gEvent.start.dateTime).toLocaleDateString('en-CA') : '');
+
+  // Fix for exclusive end date (All Day) or Timezone shifts (Timed)
+  let endDate = gEvent.end.date || (gEvent.end.dateTime ? new Date(gEvent.end.dateTime).toLocaleDateString('en-CA') : '');
+  if (gEvent.end.date && endDate) {
+    // Calculate duration in days to handle "All Day" logic robustly
+    // Date.parse("YYYY-MM-DD") parses as UTC, which is safe for arithmetic
+    const startMs = Date.parse(startDate);
+    const endMs = Date.parse(endDate);
+
+    if (!isNaN(startMs) && !isNaN(endMs)) {
+      const diffMs = endMs - startMs;
+      const oneDayMs = 86400000; // 24 * 60 * 60 * 1000
+      const days = Math.round(diffMs / oneDayMs);
+
+      if (days <= 1) {
+        // Single day event (or less) - force clearing endDate
+        endDate = '';
+      } else {
+        // Multi-day event: Google end date is exclusive, so subtract 1 day
+        // Use UTC calculation to avoid local timezone issues
+        endDate = new Date(endMs - oneDayMs).toISOString().split('T')[0];
+      }
+    }
+  }
+
+  const startTime = gEvent.start.dateTime
+    ? new Date(gEvent.start.dateTime).toTimeString().slice(0, 5)
+    : undefined;
+  const endTime = gEvent.end.dateTime
+    ? new Date(gEvent.end.dateTime).toTimeString().slice(0, 5)
+    : undefined;
+  const calendarName = gEvent.calendarId ? calendarNameById.get(gEvent.calendarId) : undefined;
+  const categoryId = gEvent.calendarId ? calendarCategoryMap.get(gEvent.calendarId) : undefined;
+
+  if (!categoryId) return null;
+
+  return {
+    id: uuidv4(),
+    title: gEvent.summary || 'Untitled Event',
+    description: gEvent.description || `Imported from Google Calendar${calendarName ? ` (${calendarName})` : ''}`,
+    date: startDate,
+    endDate: endDate !== startDate ? endDate : '',
+    startTime,
+    endTime,
+    categoryId,
+    googleEventId: gEvent.id,
+    googleCalendarId: gEvent.calendarId,
+    googleCalendarName: calendarName,
+  };
+}
+
 export default function GoogleCalendarSync({
   year,
   onImportEvents,
@@ -55,14 +113,33 @@ export default function GoogleCalendarSync({
       const list = await googleCalendarService.getCalendars();
       setCalendars(list);
 
-      const defaultSelected = list
-        .filter((cal) => cal.primary || cal.selected)
-        .map((cal) => cal.id);
+      // Check localStorage for persisted selection
+      const savedSelection = localStorage.getItem('google_calendar_sync_selection');
+      let initialSelectedIds: string[] = [];
 
-      if (defaultSelected.length) {
-        setSelectedCalendarIds(defaultSelected);
+      if (savedSelection) {
+        try {
+          const parsed = JSON.parse(savedSelection);
+          // Filter to ensure only valid calendar IDs are kept
+          initialSelectedIds = parsed.filter((id: string) => list.some(cal => cal.id === id));
+        } catch (e) {
+          console.error('Failed to parse saved calendar selection', e);
+        }
+      }
+
+      if (initialSelectedIds.length > 0) {
+        setSelectedCalendarIds(initialSelectedIds);
       } else {
-        setSelectedCalendarIds(list.map((cal) => cal.id));
+        // Fallback to defaults
+        const defaultSelected = list
+          .filter((cal) => cal.primary || cal.selected)
+          .map((cal) => cal.id);
+
+        if (defaultSelected.length) {
+          setSelectedCalendarIds(defaultSelected);
+        } else {
+          setSelectedCalendarIds(list.map((cal) => cal.id));
+        }
       }
     };
 
@@ -70,6 +147,13 @@ export default function GoogleCalendarSync({
       console.error('Failed to load calendars:', error);
     });
   }, [isSignedIn]);
+
+  // Persist calendar selection
+  useEffect(() => {
+    if (selectedCalendarIds.length > 0) {
+      localStorage.setItem('google_calendar_sync_selection', JSON.stringify(selectedCalendarIds));
+    }
+  }, [selectedCalendarIds]);
 
   // Polling for events
   useEffect(() => {
@@ -83,15 +167,7 @@ export default function GoogleCalendarSync({
       // The user didn't ask for quiet polling specifically but "poling" usually implies background.
       // Refactoring handleSync to take a 'silent' param would be good.
       // For this iteration, I'll essentially replicate handleSync but maybe without the success toast.
-
-      // Actually, the requirement "baked in" implies it just happens.
-      // Let's call handleSync but we likely need to modify handleSync to accept a `silent` flag to avoid spamming "Imported X events".
-      // Since I cannot easily modify handleSync signature in `useEffect` without changing it below...
-      // I'll just rely on `handleSync` for now and maybe the user will be okay with the toast or I can suppress it.
-      // Wait, if I call handleSync it sets `isSyncing` state which might flash the UI.
-      // Let's try to do it properly. I will modify handleSync signature below in a separate edit, 
-      // but here I will call it assuming I'll update it.
-      // A better approach for this tool execution is to just fetch and import silently here.
+      // The user didn't ask for quiet polling specifically but "poling" usually implies background.
 
       try {
         const selectedCalendars = calendars.filter((cal) => selectedCalendarIds.includes(cal.id));
@@ -100,34 +176,9 @@ export default function GoogleCalendarSync({
         const googleEvents = await googleCalendarService.fetchEvents(year, selectedCalendarIds);
         const calendarNameById = new Map(calendars.map((cal) => [cal.id, cal.summary]));
 
-        const convertedEvents = googleEvents.map((gEvent: GoogleCalendarEvent) => {
-          const startDate = gEvent.start.date || gEvent.start.dateTime?.split('T')[0] || '';
-          const endDate = gEvent.end.date || gEvent.end.dateTime?.split('T')[0] || '';
-          const startTime = gEvent.start.dateTime
-            ? new Date(gEvent.start.dateTime).toTimeString().slice(0, 5)
-            : undefined;
-          const endTime = gEvent.end.dateTime
-            ? new Date(gEvent.end.dateTime).toTimeString().slice(0, 5)
-            : undefined;
-          const calendarName = gEvent.calendarId ? calendarNameById.get(gEvent.calendarId) : undefined;
-          const categoryId = gEvent.calendarId ? calendarCategoryMap.get(gEvent.calendarId) : undefined;
-
-          if (!categoryId) return null;
-
-          return {
-            id: uuidv4(),
-            title: gEvent.summary || 'Untitled Event',
-            description: gEvent.description || `Imported from Google Calendar${calendarName ? ` (${calendarName})` : ''}`,
-            date: startDate,
-            endDate: endDate !== startDate ? endDate : undefined,
-            startTime,
-            endTime,
-            categoryId,
-            googleEventId: gEvent.id,
-            googleCalendarId: gEvent.calendarId,
-            googleCalendarName: calendarName,
-          };
-        }).filter((event) => event !== null);
+        const convertedEvents = googleEvents
+          .map((gEvent) => convertGoogleEventToLocal(gEvent, calendarNameById, calendarCategoryMap))
+          .filter((event): event is Partial<Event> => event !== null);
 
         onImportEvents(convertedEvents); // This hook likely handles waiting/dedup logic
       } catch (error) {
@@ -181,36 +232,9 @@ export default function GoogleCalendarSync({
       const googleEvents = await googleCalendarService.fetchEvents(year, selectedCalendarIds);
       const calendarNameById = new Map(calendars.map((cal) => [cal.id, cal.summary]));
 
-      const convertedEvents = googleEvents.map((gEvent: GoogleCalendarEvent) => {
-        const startDate = gEvent.start.date || gEvent.start.dateTime?.split('T')[0] || '';
-        const endDate = gEvent.end.date || gEvent.end.dateTime?.split('T')[0] || '';
-        const startTime = gEvent.start.dateTime
-          ? new Date(gEvent.start.dateTime).toTimeString().slice(0, 5)
-          : undefined;
-        const endTime = gEvent.end.dateTime
-          ? new Date(gEvent.end.dateTime).toTimeString().slice(0, 5)
-          : undefined;
-        const calendarName = gEvent.calendarId ? calendarNameById.get(gEvent.calendarId) : undefined;
-        const categoryId = gEvent.calendarId ? calendarCategoryMap.get(gEvent.calendarId) : undefined;
-
-        if (!categoryId) {
-          return null;
-        }
-
-        return {
-          id: uuidv4(),
-          title: gEvent.summary || 'Untitled Event',
-          description: gEvent.description || `Imported from Google Calendar${calendarName ? ` (${calendarName})` : ''}`,
-          date: startDate,
-          endDate: endDate !== startDate ? endDate : undefined,
-          startTime,
-          endTime,
-          categoryId,
-          googleEventId: gEvent.id,
-          googleCalendarId: gEvent.calendarId,
-          googleCalendarName: calendarName,
-        };
-      }).filter((event) => event !== null);
+      const convertedEvents = googleEvents
+        .map((gEvent) => convertGoogleEventToLocal(gEvent, calendarNameById, calendarCategoryMap))
+        .filter((event): event is Partial<Event> => event !== null);
 
       onImportEvents(convertedEvents);
       showToast(`Imported ${convertedEvents.length} events from Google Calendar`, 'success');

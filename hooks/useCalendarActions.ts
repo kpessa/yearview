@@ -239,8 +239,33 @@ export function useCalendarActions(
                 const existingByGoogleId = existingByGoogleKey.get(existingKey);
 
                 if (existingByGoogleId) {
-                    // Event already exists and is linked. 
-                    // We skip it as per "Existing events shouldn't be fetched again"
+                    // Check for discrepancy and update - Google is source of truth
+                    const needsUpdate =
+                        existingByGoogleId.title !== eventData.title ||
+                        existingByGoogleId.description !== eventData.description ||
+                        existingByGoogleId.date !== eventData.date ||
+                        existingByGoogleId.endDate !== eventData.endDate ||
+                        existingByGoogleId.startTime !== eventData.startTime ||
+                        existingByGoogleId.endTime !== eventData.endTime ||
+                        existingByGoogleId.categoryId !== eventData.categoryId;
+
+                    if (needsUpdate) {
+                        (db.transact as any)((db.tx as any).events[existingByGoogleId.id].update({
+                            title: eventData.title,
+                            description: eventData.description,
+                            date: eventData.date,
+                            endDate: eventData.endDate,
+                            startTime: eventData.startTime,
+                            endTime: eventData.endTime,
+                            categoryId: eventData.categoryId,
+                            updatedAt: Date.now(),
+                            // Don't change link IDs/names unless we want to track moves? 
+                            // Assuming calendar/event ID stays same is fine.
+                        }));
+                        // We could count updates if we wanted to show in toast, but "new" and "linked" is what's currently reported.
+                        // We can consider this "linked" or "synced".
+                        linkedCount++;
+                    }
                     return;
                 }
 

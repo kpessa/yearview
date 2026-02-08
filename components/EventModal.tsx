@@ -32,6 +32,7 @@ export default function EventModal({
   const [endDate, setEndDate] = useState('');
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
+  const [isAllDay, setIsAllDay] = useState(false);
   const [categoryId, setCategoryId] = useState('');
 
   // Focus trap must be called unconditionally to maintain hook order
@@ -43,8 +44,11 @@ export default function EventModal({
       setDescription(event.description || '');
       setDate(event.date);
       setEndDate(event.endDate || '');
+      // If no start time, assume all day.
+      const hasTime = !!event.startTime;
       setStartTime(event.startTime || '');
       setEndTime(event.endTime || '');
+      setIsAllDay(!hasTime);
       setCategoryId(event.categoryId);
     } else if (selectedDate) {
       setDate(formatDate(selectedDate));
@@ -53,6 +57,7 @@ export default function EventModal({
       setEndDate('');
       setStartTime('');
       setEndTime('');
+      setIsAllDay(true); // Default to all day for new events on a date click
       setCategoryId(categories[0]?.id || '');
     } else {
       setTitle('');
@@ -61,6 +66,7 @@ export default function EventModal({
       setEndDate('');
       setStartTime('');
       setEndTime('');
+      setIsAllDay(true); // Default to all day
       setCategoryId(categories[0]?.id || '');
     }
   }, [event, selectedDate, categories, isOpen]);
@@ -81,7 +87,7 @@ export default function EventModal({
       return;
     }
 
-    if (endTime && startTime && endTime < startTime) {
+    if (!isAllDay && endTime && startTime && endTime < startTime) {
       showToast('End time must be after start time', 'warning');
       return;
     }
@@ -91,14 +97,17 @@ export default function EventModal({
       title: title.trim(),
       description: description.trim(),
       date,
-      endDate: endDate || undefined,
-      startTime: startTime || undefined,
-      endTime: endTime || undefined,
+      endDate: endDate || '', // Use empty string to clear if needed, or maintain value
+      startTime: isAllDay ? null : (startTime || null), // Explicitly null if all day
+      endTime: isAllDay ? null : (endTime || null), // Explicitly null if all day
       categoryId,
     });
 
     onClose();
   };
+
+
+
 
   const handleDelete = () => {
     if (event && onDelete) {
@@ -195,33 +204,48 @@ export default function EventModal({
             <p className="text-xs text-stone-400 mt-1 font-light">Leave empty for single-day events</p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label htmlFor="startTime" className="block text-sm font-light text-stone-600 mb-2">
-                Start Time (Optional)
-              </label>
-              <input
-                type="time"
-                id="startTime"
-                value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border border-neutral-200 focus:ring-1 focus:ring-neutral-300 focus:border-transparent outline-none transition-all text-stone-700 font-light bg-white/50"
-              />
-            </div>
-            <div>
-              <label htmlFor="endTime" className="block text-sm font-light text-stone-600 mb-2">
-                End Time (Optional)
-              </label>
-              <input
-                type="time"
-                id="endTime"
-                value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
-                min={startTime || undefined}
-                className="w-full px-4 py-3 rounded-xl border border-neutral-200 focus:ring-1 focus:ring-neutral-300 focus:border-transparent outline-none transition-all text-stone-700 font-light bg-white/50"
-              />
-            </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="isAllDay"
+              checked={isAllDay}
+              onChange={(e) => setIsAllDay(e.target.checked)}
+              className="w-4 h-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-500"
+            />
+            <label htmlFor="isAllDay" className="text-sm text-neutral-700 font-medium select-none cursor-pointer">
+              All Day Event
+            </label>
           </div>
+
+          {!isAllDay && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2 duration-200">
+              <div>
+                <label htmlFor="startTime" className="block text-sm font-light text-stone-600 mb-2">
+                  Start Time
+                </label>
+                <input
+                  type="time"
+                  id="startTime"
+                  value={startTime}
+                  onChange={(e) => setStartTime(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl border border-neutral-200 focus:ring-1 focus:ring-neutral-300 focus:border-transparent outline-none transition-all text-stone-700 font-light bg-white/50"
+                />
+              </div>
+              <div>
+                <label htmlFor="endTime" className="block text-sm font-light text-stone-600 mb-2">
+                  End Time
+                </label>
+                <input
+                  type="time"
+                  id="endTime"
+                  value={endTime}
+                  onChange={(e) => setEndTime(e.target.value)}
+                  min={startTime || undefined}
+                  className="w-full px-4 py-3 rounded-xl border border-neutral-200 focus:ring-1 focus:ring-neutral-300 focus:border-transparent outline-none transition-all text-stone-700 font-light bg-white/50"
+                />
+              </div>
+            </div>
+          )}
 
           <div>
             <label htmlFor="category" className="block text-sm font-light text-stone-600 mb-2">
