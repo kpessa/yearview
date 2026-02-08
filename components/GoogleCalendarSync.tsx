@@ -12,6 +12,7 @@ interface GoogleCalendarSyncProps {
   onDeleteGoogleEvents: () => void;
   onEnsureGoogleCalendarCategories: (calendars: GoogleCalendarListEntry[]) => Map<string, string>;
   userEmail?: string;
+  isSidebar?: boolean;
 }
 
 export default function GoogleCalendarSync({
@@ -19,7 +20,8 @@ export default function GoogleCalendarSync({
   onImportEvents,
   onDeleteGoogleEvents,
   onEnsureGoogleCalendarCategories,
-  userEmail
+  userEmail,
+  isSidebar = false,
 }: GoogleCalendarSyncProps) {
   const { showToast, showConfirm } = useToast();
   const [isSignedIn, setIsSignedIn] = useState(false);
@@ -221,7 +223,7 @@ export default function GoogleCalendarSync({
   };
 
   return (
-    <div className="flex items-center gap-2">
+    <div className={`flex ${isSidebar ? 'flex-col items-stretch' : 'items-center'} gap-2`}>
       {!isSignedIn ? (
         <button
           onClick={handleSignIn}
@@ -243,7 +245,7 @@ export default function GoogleCalendarSync({
           )}
         </button>
       ) : (
-        <div className="flex items-center gap-2">
+        <div className={`flex ${isSidebar ? 'flex-col items-stretch' : 'items-center'} gap-2`}>
           <button
             onClick={handleSync}
             disabled={isSyncing}
@@ -255,7 +257,7 @@ export default function GoogleCalendarSync({
             <summary className="px-3 py-2 bg-white border border-neutral-300 rounded-xl text-sm font-medium text-neutral-700 hover:bg-neutral-50 transition-all cursor-pointer">
               Calendars ({selectedCalendarIds.length || 0})
             </summary>
-            <div className="absolute right-0 mt-2 w-72 bg-white border border-neutral-200 rounded-xl shadow-lg p-3 z-10">
+            <div className={`absolute ${isSidebar ? 'left-0 w-full' : 'right-0 w-72'} mt-2 bg-white border border-neutral-200 rounded-xl shadow-lg p-3 z-10`}>
               {calendars.length ? (
                 <div className="flex flex-col gap-2">
                   <div className="flex items-center gap-2">

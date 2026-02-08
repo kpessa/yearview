@@ -37,6 +37,12 @@ export interface CalendarState {
     setShowIndiaHolidays: (show: boolean) => void;
     showLongWeekends: boolean;
     setShowLongWeekends: (show: boolean) => void;
+    // Card view mode
+    cardViewMode: 'quarter' | 'continuous';
+    setCardViewMode: (mode: 'quarter' | 'continuous') => void;
+    // Sidebar
+    isSidebarOpen: boolean;
+    setIsSidebarOpen: (open: boolean) => void;
 }
 
 export interface CalendarData {
@@ -61,6 +67,8 @@ export function useCalendarState(): CalendarState {
     const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
     const [selectedDate, setSelectedDate] = useState<Date | null>(null);
     const [viewMode, setViewMode] = useState<'year' | 'cards'>('cards');
+    const [cardViewMode, setCardViewMode] = useState<'quarter' | 'continuous'>('quarter');
+    const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const [selectedQuarter, setSelectedQuarter] = useState<1 | 2 | 3 | 4>(() => {
         return getQuarterForDate(new Date());
     });
@@ -94,6 +102,10 @@ export function useCalendarState(): CalendarState {
         setViewMode,
         selectedQuarter,
         setSelectedQuarter,
+        cardViewMode,
+        setCardViewMode,
+        isSidebarOpen,
+        setIsSidebarOpen,
         // Display options
         showPastDatesAsGray,
         setShowPastDatesAsGray,

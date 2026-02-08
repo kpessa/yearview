@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import AuthWrapper from '@/components/AuthWrapper';
 import Header from '@/components/Header';
+import Sidebar from '@/components/Sidebar';
 import YearGrid from '@/components/YearGrid';
 import CardWeekGrid from '@/components/CardWeekGrid';
 import EventModal from '@/components/EventModal';
@@ -36,7 +37,7 @@ function CalendarApp() {
   }, [handleEnsureGoogleCategoriesFromEvents, handleDeduplicateGoogleEvents, events, categories]);
 
   return (
-    <div className="min-h-screen bg-neutral-50">
+    <div className="min-h-screen bg-neutral-50 flex flex-col">
       <Header
         year={state.selectedYear}
         onYearChange={state.setSelectedYear}
@@ -51,54 +52,78 @@ function CalendarApp() {
         onViewModeChange={state.setViewMode}
         selectedQuarter={state.selectedQuarter}
         onQuarterChange={state.setSelectedQuarter}
+        cardViewMode={state.cardViewMode}
+        onCardViewModeChange={state.setCardViewMode}
 
         // Google Calendar Props
         onImportEvents={actions.handleImportGoogleEvents}
         onDeleteGoogleEvents={actions.handleDeleteGoogleEvents}
         onEnsureGoogleCalendarCategories={actions.handleEnsureGoogleCalendarCategories}
+        onToggleSidebar={() => state.setIsSidebarOpen(!state.isSidebarOpen)}
+        isSidebarOpen={state.isSidebarOpen}
       />
 
-      <div className="max-w-[1800px] mx-auto px-2 py-4">
-      </div>
+      <Sidebar
+        isOpen={state.isSidebarOpen}
+        onClose={() => state.setIsSidebarOpen(false)}
+        year={state.selectedYear}
+        onYearChange={state.setSelectedYear}
+        categories={categories}
+        visibleCategoryIds={state.visibleCategoryIds}
+        onToggleCategory={actions.handleToggleCategory}
+        onAddCategory={actions.handleAddCategory}
+        onEditCategory={actions.handleEditCategory}
+        onOpenDisplayOptions={() => state.setIsDisplayOptionsOpen(true)}
+        onImportEvents={actions.handleImportGoogleEvents}
+        onDeleteGoogleEvents={actions.handleDeleteGoogleEvents}
+        onEnsureGoogleCalendarCategories={actions.handleEnsureGoogleCalendarCategories}
+      />
 
-      <main className="max-w-[1800px] mx-auto px-2 py-2">
-        {isLoading ? (
-          <CalendarSkeleton />
-        ) : (
-          state.viewMode === 'cards' ? (
-            <CardWeekGrid
-              year={state.selectedYear}
-              events={events}
-              categories={categories}
-              visibleCategoryIds={state.visibleCategoryIds}
-              customHolidays={customHolidays}
-              dayNotes={dayNotes}
-              onDayClick={actions.handleDayClick}
-              onEventClick={actions.handleEditEvent}
-              showUSHolidays={state.showUSHolidays}
-              showIndiaHolidays={state.showIndiaHolidays}
-              showLongWeekends={state.showLongWeekends}
-              showPastDatesAsGray={state.showPastDatesAsGray}
-              quarter={state.selectedQuarter}
-            />
+      <div className={`transition-all duration-300 ${state.isSidebarOpen ? 'ml-0 md:ml-80' : 'ml-0'}`}>
+
+        <div className="max-w-[1800px] mx-auto px-2 py-4">
+        </div>
+
+        <main className="max-w-[1800px] mx-auto px-2 py-2">
+          {isLoading ? (
+            <CalendarSkeleton />
           ) : (
-            <YearGrid
-              year={state.selectedYear}
-              events={events}
-              categories={categories}
-              visibleCategoryIds={state.visibleCategoryIds}
-              customHolidays={customHolidays}
-              dayNotes={dayNotes}
-              onDayClick={actions.handleDayClick}
-              onEventClick={actions.handleEditEvent}
-              showUSHolidays={state.showUSHolidays}
-              showIndiaHolidays={state.showIndiaHolidays}
-              showLongWeekends={state.showLongWeekends}
-              showPastDatesAsGray={state.showPastDatesAsGray}
-            />
-          )
-        )}
-      </main>
+            state.viewMode === 'cards' ? (
+              <CardWeekGrid
+                year={state.selectedYear}
+                events={events}
+                categories={categories}
+                visibleCategoryIds={state.visibleCategoryIds}
+                customHolidays={customHolidays}
+                dayNotes={dayNotes}
+                onDayClick={actions.handleDayClick}
+                onEventClick={actions.handleEditEvent}
+                showUSHolidays={state.showUSHolidays}
+                showIndiaHolidays={state.showIndiaHolidays}
+                showLongWeekends={state.showLongWeekends}
+                showPastDatesAsGray={state.showPastDatesAsGray}
+                quarter={state.selectedQuarter}
+                cardViewMode={state.cardViewMode}
+              />
+            ) : (
+              <YearGrid
+                year={state.selectedYear}
+                events={events}
+                categories={categories}
+                visibleCategoryIds={state.visibleCategoryIds}
+                customHolidays={customHolidays}
+                dayNotes={dayNotes}
+                onDayClick={actions.handleDayClick}
+                onEventClick={actions.handleEditEvent}
+                showUSHolidays={state.showUSHolidays}
+                showIndiaHolidays={state.showIndiaHolidays}
+                showLongWeekends={state.showLongWeekends}
+                showPastDatesAsGray={state.showPastDatesAsGray}
+              />
+            )
+          )}
+        </main>
+      </div>
 
       <EventModal
         isOpen={state.isEventModalOpen}
