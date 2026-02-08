@@ -40,7 +40,7 @@ export function getDayCellBackgroundClass(
   const pastOpacity = isPast && showPastDatesAsGray && !isCurrentDay ? pastDateOpacityClass : '';
 
   let backgroundClass = 'bg-white border-r border-neutral-100';
-  if (isCurrentDay) backgroundClass = 'bg-green-50 border border-green-600';
+  if (isCurrentDay) backgroundClass = 'bg-green-50';
   else if (isHolidayDay) backgroundClass = 'bg-red-100 border-r border-red-200';
   else if (isHighlighted) backgroundClass = 'bg-blue-50 border-r border-blue-200';
   else if (isExtendedWeekendDay) backgroundClass = 'bg-red-50 border-r border-red-100';

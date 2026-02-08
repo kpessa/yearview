@@ -10,6 +10,7 @@ import {
   getWeeksInYear,
   parseDateString,
   WeekInYear,
+  isToday,
 } from '@/lib/dateUtils';
 import DayCell from './DayCell';
 import { normalizeOpacity, toRgba } from '@/lib/colors';
@@ -315,137 +316,189 @@ export default function CardWeekGrid({
         const weekEvents = displayedWeekEvents[index] || [];
         const eventStackHeight = maxWeekEventStackHeight;
 
+        const shouldShowHidePast = !isPastCollapsed && isPastGroup && index === 0;
+        const shouldShowHideFuture = !isFutureCollapsed && isFutureGroup && index === displayedWeeks.length - 1;
+
         return (
-          <div
-            key={`${week.start.toISOString()}-${index}`}
-            className="card-week-stack"
-            ref={(el) => {
-              weekRefs.current[index] = el;
-            }}
-          >
-            <div className="card-week-row">
-              <div className="card-week-label">
-                <div className={`card-title text-base ${weekSuitColor}`}>
-                  {rank} {suitForWeek}
-                </div>
-                <div className="text-[10px] uppercase tracking-wide text-neutral-500">
-                  W{weekNumber}
-                </div>
-              </div>
-
-              <div className="card-month-label">
-                {monthLabel && (
-                  <span>{monthLabel}</span>
-                )}
-              </div>
-
+          <div key={`${week.start.toISOString()}-${index}-wrapper`}>
+            {shouldShowHidePast && (
               <div
-                className="relative flex-1 card-week-grid"
-                style={eventStackHeight > 0 ? { paddingBottom: `${eventStackHeight}px` } : undefined}
+                className="card-week-stack cursor-pointer group"
+                onClick={() => setIsPastCollapsed(true)}
               >
-                <div className="grid grid-cols-7 gap-px bg-neutral-200 overflow-hidden">
-                  {week.dates.map((date, dayIndex) => {
-                    const isOutsideYear = date.getFullYear() !== year;
-                    const dayEvents = getEventsForDate(date);
-                    return (
-                      <div
-                        key={`${formatDate(date)}-${dayIndex}`}
-                        className={`h-16 ${isOutsideYear ? 'opacity-50' : ''}`}
-                      >
-                        <DayCell
-                          date={date}
-                          events={dayEvents}
-                          categories={categories}
-                          visibleCategoryIds={visibleCategoryIds}
-                          customHolidays={customHolidays}
-                          dayNotes={dayNotes}
-                          onDayClick={onDayClick}
-                          onEventClick={onEventClick}
-                          showEventDots={false}
-                          showEventCountBadge={false}
-                          showSingleDayChips={true}
-                          chipsBelowBars={false}
-                          separateAllDayAndTimed={true}
-                          showUSHolidays={showUSHolidays}
-                          showIndiaHolidays={showIndiaHolidays}
-                          showLongWeekends={showLongWeekends}
-                          showPastDatesAsGray={showPastDatesAsGray}
-                          pastDateOpacityClass="opacity-40"
-                          weekendBackgroundClass="bg-neutral-200 border-r border-neutral-200"
-                          currentDayAccentClass="ring-4 ring-emerald-600 ring-inset shadow-[0_0_0_2px_rgba(16,185,129,0.35)]"
-                        />
-                      </div>
-                    );
-                  })}
+                <div className="card-week-row h-12 flex items-center justify-center bg-neutral-50 hover:bg-neutral-100 transition-colors border-b border-neutral-200">
+                  <span className="text-sm font-medium text-neutral-500 group-hover:text-neutral-700 flex items-center gap-2">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                    Hide Previous Weeks
+                  </span>
+                </div>
+              </div>
+            )}
+
+            <div
+              key={`${week.start.toISOString()}-${index}`}
+              className="card-week-stack"
+              ref={(el) => {
+                weekRefs.current[index] = el;
+              }}
+            >
+              <div className="card-week-row">
+                <div className="card-week-label">
+                  <div className={`card-title text-base ${weekSuitColor}`}>
+                    {rank} {suitForWeek}
+                  </div>
+                  <div className="text-[10px] uppercase tracking-wide text-neutral-500">
+                    W{weekNumber}
+                  </div>
                 </div>
 
-                {eventStackHeight > 0 && (
-                  <div
-                    className="card-week-spanning-bg"
-                    style={{ height: `${eventStackHeight}px` }}
-                  >
-                    <div className="grid grid-cols-7 gap-px bg-neutral-200 overflow-hidden h-full">
-                      {week.dates.map((date, dayIndex) => {
-                        const isOutsideYear = date.getFullYear() !== year;
-                        return (
-                          <div
-                            key={`span-bg-${formatDate(date)}-${dayIndex}`}
-                            className={`h-full ${getDayCellBackgroundClass(date, {
-                              customHolidays,
-                              dayNotes,
-                              showUSHolidays,
-                              showIndiaHolidays,
-                              showLongWeekends,
-                              showPastDatesAsGray,
-                              pastDateOpacityClass: 'opacity-40',
-                              weekendBackgroundClass: 'bg-neutral-200 border-r border-neutral-200',
-                            })} ${isOutsideYear ? 'opacity-50' : ''}`}
-                          />
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
+                <div className="card-month-label">
+                  {monthLabel && (
+                    <span>{monthLabel}</span>
+                  )}
+                </div>
 
                 <div
-                  className="card-week-events"
-                  style={eventStackHeight > 0 ? { height: `${eventStackHeight}px` } : undefined}
+                  className="relative flex-1 card-week-grid"
+                  style={eventStackHeight > 0 ? { paddingBottom: `${eventStackHeight}px` } : undefined}
                 >
-                  {weekEvents.map((event, eventIndex) => {
-                    const category = categories.find(c => c.id === event.categoryId);
-                    if (!category) return null;
-                    const categoryOpacity = normalizeOpacity(category.opacity);
-                    const leftPercent = (event.startIndex / 7) * 100;
-                    const widthPercent = (event.span / 7) * 100;
+                  <div className="grid grid-cols-7 gap-px bg-neutral-200 overflow-hidden">
+                    {week.dates.map((date, dayIndex) => {
+                      const isOutsideYear = date.getFullYear() !== year;
+                      const dayEvents = getEventsForDate(date);
+                      return (
+                        <div
+                          key={`${formatDate(date)}-${dayIndex}`}
+                          className={`h-16 ${isOutsideYear ? 'opacity-50' : ''}`}
+                        >
+                          <DayCell
+                            date={date}
+                            events={dayEvents}
+                            categories={categories}
+                            visibleCategoryIds={visibleCategoryIds}
+                            customHolidays={customHolidays}
+                            dayNotes={dayNotes}
+                            onDayClick={onDayClick}
+                            onEventClick={onEventClick}
+                            showEventDots={false}
+                            showEventCountBadge={false}
+                            showSingleDayChips={true}
+                            chipsBelowBars={false}
+                            separateAllDayAndTimed={true}
+                            showUSHolidays={showUSHolidays}
+                            showIndiaHolidays={showIndiaHolidays}
+                            showLongWeekends={showLongWeekends}
+                            showPastDatesAsGray={showPastDatesAsGray}
+                            pastDateOpacityClass="opacity-40"
+                            weekendBackgroundClass="bg-neutral-200 border-r border-neutral-200"
+                            currentDayAccentClass=""
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
 
+                  {eventStackHeight > 0 && (
+                    <div
+                      className="card-week-spanning-bg"
+                      style={{ height: `${eventStackHeight}px` }}
+                    >
+                      <div className="grid grid-cols-7 gap-px bg-neutral-200 overflow-hidden h-full">
+                        {week.dates.map((date, dayIndex) => {
+                          const isOutsideYear = date.getFullYear() !== year;
+                          return (
+                            <div
+                              key={`span-bg-${formatDate(date)}-${dayIndex}`}
+                              className={`h-full ${getDayCellBackgroundClass(date, {
+                                customHolidays,
+                                dayNotes,
+                                showUSHolidays,
+                                showIndiaHolidays,
+                                showLongWeekends,
+                                showPastDatesAsGray,
+                                pastDateOpacityClass: 'opacity-40',
+                                weekendBackgroundClass: 'bg-neutral-200 border-r border-neutral-200',
+                              })} ${isOutsideYear ? 'opacity-50' : ''}`}
+                            />
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  <div
+                    className="card-week-events"
+                    style={eventStackHeight > 0 ? { height: `${eventStackHeight}px` } : undefined}
+                  >
+                    {weekEvents.map((event, eventIndex) => {
+                      const category = categories.find(c => c.id === event.categoryId);
+                      if (!category) return null;
+                      const categoryOpacity = normalizeOpacity(category.opacity);
+                      const leftPercent = (event.startIndex / 7) * 100;
+                      const widthPercent = (event.span / 7) * 100;
+
+                      return (
+                        <button
+                          key={event.id}
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onEventClick(event);
+                          }}
+                          className="card-week-event-chip"
+                          style={{
+                            left: `${leftPercent}%`,
+                            width: `${widthPercent}%`,
+                            bottom: `${4 + (eventIndex * 18)}px`,
+                            backgroundColor: toRgba(category.color, categoryOpacity),
+                          }}
+                          title={event.title}
+                        >
+                          {event.title}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {week.dates.findIndex((d) => isToday(d)) !== -1 && (() => {
+                    const dayIndex = week.dates.findIndex((d) => isToday(d));
+                    const left = (dayIndex / 7) * 100;
+                    const width = 100 / 7;
                     return (
-                      <button
-                        key={event.id}
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onEventClick(event);
-                        }}
-                        className="card-week-event-chip"
+                      <div
+                        className="absolute top-0 bottom-0 pointer-events-none z-10 border-x border-emerald-500/30 bg-emerald-50/10 ring-2 ring-emerald-500 ring-inset shadow-sm"
                         style={{
-                          left: `${leftPercent}%`,
-                          width: `${widthPercent}%`,
-                          bottom: `${4 + (eventIndex * 18)}px`,
-                          backgroundColor: toRgba(category.color, categoryOpacity),
+                          left: `${left}%`,
+                          width: `${width}%`,
                         }}
-                        title={event.title}
-                      >
-                        {event.title}
-                      </button>
+                      />
                     );
-                  })}
+                  })()}
                 </div>
               </div>
+
+              {week.overflowDates && week.overflowDates.length > 0 && (
+                <div className="card-overflow-note">
+                  Overflow: {week.overflowDates.map(d => formatDateForDisplay(formatDate(d))).join(', ')}
+                </div>
+              )}
             </div>
 
-            {week.overflowDates && week.overflowDates.length > 0 && (
-              <div className="card-overflow-note">
-                Overflow: {week.overflowDates.map(d => formatDateForDisplay(formatDate(d))).join(', ')}
+            {shouldShowHideFuture && (
+              <div
+                className="card-week-stack cursor-pointer group"
+                onClick={() => setIsFutureCollapsed(true)}
+              >
+                <div className="card-week-row h-12 flex items-center justify-center bg-neutral-50 hover:bg-neutral-100 transition-colors border-t border-neutral-200">
+                  <span className="text-sm font-medium text-neutral-500 group-hover:text-neutral-700 flex items-center gap-2">
+                    Hide Future Weeks
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                    </svg>
+                  </span>
+                </div>
               </div>
             )}
           </div>
