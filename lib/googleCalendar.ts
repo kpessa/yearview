@@ -33,42 +33,31 @@ export interface GoogleCalendarListEntry {
 
 export class GoogleCalendarService {
   private accessToken: string | null = null;
-  private tokenClient: any = null;
-  private isInitialized = false;
+  private gsiLoaded = false;
 
   async init() {
-    if (this.isInitialized) return;
+    if (this.gsiLoaded) return;
 
     return new Promise<void>((resolve, reject) => {
-      const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
-      if (!clientId) {
+      if (!process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID) {
         console.error('Missing NEXT_PUBLIC_GOOGLE_CLIENT_ID');
         reject(new Error('Configuration Error: Google Client ID is missing'));
         return;
       }
 
-      // Load Google Identity Services
+      // Check if script is already loaded
+      if ((window as any).google?.accounts?.oauth2) {
+        this.gsiLoaded = true;
+        resolve();
+        return;
+      }
+
+      // Load Google Identity Services script
       const script = document.createElement('script');
       script.src = 'https://accounts.google.com/gsi/client';
       script.onload = () => {
-        try {
-          this.tokenClient = (window as any).google.accounts.oauth2.initTokenClient({
-            client_id: clientId,
-            scope: 'https://www.googleapis.com/auth/calendar',
-            callback: (response: TokenResponse) => {
-              if (response.access_token) {
-                this.accessToken = response.access_token;
-              }
-            },
-            error_callback: (error: any) => {
-              console.error('Google Identity Services Error:', error);
-            }
-          });
-          this.isInitialized = true;
-          resolve();
-        } catch (e) {
-          reject(e);
-        }
+        this.gsiLoaded = true;
+        resolve();
       };
       script.onerror = () => reject(new Error('Failed to load Google Identity Services'));
       document.body.appendChild(script);
@@ -82,54 +71,47 @@ export class GoogleCalendarService {
       return new Promise((resolve) => {
         let isResolved = false;
 
-        // Safety timeout to prevent infinite loading state (e.g. popup blocked/closed)
+        const done = (success: boolean) => {
+          if (isResolved) return;
+          isResolved = true;
+          clearTimeout(timeoutId);
+          resolve(success);
+        };
+
+        // Safety timeout (e.g. popup blocked/closed without any callback)
         const timeoutId = setTimeout(() => {
-          if (!isResolved) {
-            console.warn('Google sign-in timed out');
-            isResolved = true;
-            resolve(false);
-          }
-        }, 30000); // 30 seconds
+          console.warn('Google sign-in timed out');
+          done(false);
+        }, 30000);
 
-        // Override callback for this specific request
-        this.tokenClient.callback = (response: TokenResponse) => {
-          if (isResolved) return;
-          clearTimeout(timeoutId);
-          isResolved = true;
+        // Create a fresh token client with callbacks baked in
+        const tokenClient = (window as any).google.accounts.oauth2.initTokenClient({
+          client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
+          scope: 'https://www.googleapis.com/auth/calendar',
+          callback: (response: TokenResponse) => {
+            if (response.error) {
+              console.error('Google OAuth Error:', response.error);
+              done(false);
+              return;
+            }
+            if (response.access_token) {
+              this.accessToken = response.access_token;
+              done(true);
+            } else {
+              done(false);
+            }
+          },
+          error_callback: (error: any) => {
+            console.error('Google OAuth popup error:', error);
+            done(false);
+          },
+        });
 
-          if (response.error) {
-            console.error('Google OAuth Error:', response.error);
-            resolve(false);
-            return;
-          }
-
-          if (response.access_token) {
-            this.accessToken = response.access_token;
-            resolve(true);
-          } else {
-            resolve(false);
-          }
-        };
-
-        // Override error_callback so popup failures resolve the promise immediately
-        this.tokenClient.error_callback = (error: any) => {
-          if (isResolved) return;
-          clearTimeout(timeoutId);
-          isResolved = true;
-          console.error('Google OAuth popup error:', error);
-          resolve(false);
-        };
-
-        // Request access token
         try {
-          this.tokenClient.requestAccessToken({ prompt: 'consent' });
+          tokenClient.requestAccessToken({ prompt: '' });
         } catch (e) {
           console.error('Failed to request access token:', e);
-          if (!isResolved) {
-            clearTimeout(timeoutId);
-            isResolved = true;
-            resolve(false);
-          }
+          done(false);
         }
       });
     } catch (error) {
@@ -304,49 +286,10 @@ export class GoogleCalendarService {
     }
   }
   async trySilentSignIn(email?: string): Promise<boolean> {
-    try {
-      await this.init();
-
-      return new Promise((resolve) => {
-        // Override callback for this specific request
-        this.tokenClient.callback = (response: TokenResponse) => {
-          const hasScope = response.scope && response.scope.includes('https://www.googleapis.com/auth/calendar');
-
-          if (response.access_token && hasScope) {
-            console.log('Silent sign-in successful. Scope:', response.scope);
-            this.accessToken = response.access_token;
-            resolve(true);
-          } else {
-            console.warn('Silent sign-in failed or missing scope.', {
-              hasToken: !!response.access_token,
-              scope: response.scope,
-              expectedScope: 'https://www.googleapis.com/auth/calendar'
-            });
-            resolve(false);
-          }
-        };
-
-        // Handle popup/silent errors
-        this.tokenClient.error_callback = (error: any) => {
-          console.log('Silent sign-in not available:', error?.type || error);
-          resolve(false);
-        };
-
-        // Attempt silent sign-in
-        try {
-          this.tokenClient.requestAccessToken({
-            prompt: 'none',
-            hint: email || undefined,
-            login_hint: email || undefined // Try both just in case
-          });
-        } catch (e) {
-          resolve(false);
-        }
-      });
-    } catch (error) {
-      console.error('Silent sign in error:', error);
-      return false;
-    }
+    // Silent sign-in with the token client flow always requires a popup,
+    // which browsers block without a user gesture. This method is kept for
+    // potential future use but should not be called from useEffect/mount.
+    return false;
   }
 
   async insertEvent(calendarId: string, event: Partial<GoogleCalendarEvent>): Promise<GoogleCalendarEvent | null> {
