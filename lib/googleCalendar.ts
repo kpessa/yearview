@@ -15,6 +15,7 @@ interface TokenResponse {
   access_token: string;
   expires_in: number;
   scope?: string;
+  error?: string;
 }
 
 
@@ -39,21 +40,35 @@ export class GoogleCalendarService {
     if (this.isInitialized) return;
 
     return new Promise<void>((resolve, reject) => {
+      const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+      if (!clientId) {
+        console.error('Missing NEXT_PUBLIC_GOOGLE_CLIENT_ID');
+        reject(new Error('Configuration Error: Google Client ID is missing'));
+        return;
+      }
+
       // Load Google Identity Services
       const script = document.createElement('script');
       script.src = 'https://accounts.google.com/gsi/client';
       script.onload = () => {
-        this.tokenClient = (window as any).google.accounts.oauth2.initTokenClient({
-          client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
-          scope: 'https://www.googleapis.com/auth/calendar',
-          callback: (response: TokenResponse) => {
-            if (response.access_token) {
-              this.accessToken = response.access_token;
+        try {
+          this.tokenClient = (window as any).google.accounts.oauth2.initTokenClient({
+            client_id: clientId,
+            scope: 'https://www.googleapis.com/auth/calendar',
+            callback: (response: TokenResponse) => {
+              if (response.access_token) {
+                this.accessToken = response.access_token;
+              }
+            },
+            error_callback: (error: any) => {
+              console.error('Google Identity Services Error:', error);
             }
-          },
-        });
-        this.isInitialized = true;
-        resolve();
+          });
+          this.isInitialized = true;
+          resolve();
+        } catch (e) {
+          reject(e);
+        }
       };
       script.onerror = () => reject(new Error('Failed to load Google Identity Services'));
       document.body.appendChild(script);
@@ -65,8 +80,29 @@ export class GoogleCalendarService {
       await this.init();
 
       return new Promise((resolve) => {
+        let isResolved = false;
+
+        // Safety timeout to prevent infinite loading state (e.g. popup blocked/closed)
+        const timeoutId = setTimeout(() => {
+          if (!isResolved) {
+            console.warn('Google sign-in timed out');
+            isResolved = true;
+            resolve(false);
+          }
+        }, 30000); // 30 seconds
+
         // Override callback for this specific request
         this.tokenClient.callback = (response: TokenResponse) => {
+          if (isResolved) return;
+          clearTimeout(timeoutId);
+          isResolved = true;
+
+          if (response.error) {
+            console.error('Google OAuth Error:', response.error);
+            resolve(false);
+            return;
+          }
+
           if (response.access_token) {
             this.accessToken = response.access_token;
             resolve(true);
@@ -76,7 +112,16 @@ export class GoogleCalendarService {
         };
 
         // Request access token
-        this.tokenClient.requestAccessToken({ prompt: 'consent' });
+        try {
+          this.tokenClient.requestAccessToken({ prompt: 'consent' });
+        } catch (e) {
+          console.error('Failed to request access token:', e);
+          if (!isResolved) {
+            clearTimeout(timeoutId);
+            isResolved = true;
+            resolve(false);
+          }
+        }
       });
     } catch (error) {
       console.error('Google sign in error:', error);

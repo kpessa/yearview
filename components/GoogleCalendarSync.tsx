@@ -198,6 +198,9 @@ export default function GoogleCalendarSync({
   const handleSignIn = async () => {
     setIsLoading(true);
     const success = await googleCalendarService.signIn();
+    if (!success) {
+      showToast('Failed to connect to Google Calendar. Please try again.', 'error');
+    }
     setIsSignedIn(success);
     setIsLoading(false);
   };
