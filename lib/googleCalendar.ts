@@ -11,13 +11,6 @@ export interface GoogleCalendarEvent {
   calendarName?: string;
 }
 
-interface TokenResponse {
-  access_token: string;
-  expires_in: number;
-  scope?: string;
-  error?: string;
-}
-
 
 
 export interface GoogleCalendarListEntry {
@@ -33,91 +26,49 @@ export interface GoogleCalendarListEntry {
 
 export class GoogleCalendarService {
   private accessToken: string | null = null;
-  private gsiLoaded = false;
 
-  async init() {
-    if (this.gsiLoaded) return;
+  /**
+   * Check the URL hash for an OAuth access token on page load.
+   * Returns true if a token was found and extracted.
+   */
+  handleRedirect(): boolean {
+    const hash = window.location.hash;
+    if (!hash || !hash.includes('access_token')) return false;
 
-    return new Promise<void>((resolve, reject) => {
-      if (!process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID) {
-        console.error('Missing NEXT_PUBLIC_GOOGLE_CLIENT_ID');
-        reject(new Error('Configuration Error: Google Client ID is missing'));
-        return;
-      }
+    const params = new URLSearchParams(hash.substring(1));
+    const token = params.get('access_token');
+    const state = params.get('state');
 
-      // Check if script is already loaded
-      if ((window as any).google?.accounts?.oauth2) {
-        this.gsiLoaded = true;
-        resolve();
-        return;
-      }
+    if (token && state === 'google_calendar_auth') {
+      this.accessToken = token;
+      // Clean the token from the URL without triggering a reload
+      window.history.replaceState(null, '', window.location.pathname + window.location.search);
+      return true;
+    }
 
-      // Load Google Identity Services script
-      const script = document.createElement('script');
-      script.src = 'https://accounts.google.com/gsi/client';
-      script.onload = () => {
-        this.gsiLoaded = true;
-        resolve();
-      };
-      script.onerror = () => reject(new Error('Failed to load Google Identity Services'));
-      document.body.appendChild(script);
-    });
+    return false;
   }
 
-  async signIn(): Promise<boolean> {
-    try {
-      await this.init();
-
-      return new Promise((resolve) => {
-        let isResolved = false;
-
-        const done = (success: boolean) => {
-          if (isResolved) return;
-          isResolved = true;
-          clearTimeout(timeoutId);
-          resolve(success);
-        };
-
-        // Safety timeout (e.g. popup blocked/closed without any callback)
-        const timeoutId = setTimeout(() => {
-          console.warn('Google sign-in timed out');
-          done(false);
-        }, 30000);
-
-        // Create a fresh token client with callbacks baked in
-        const tokenClient = (window as any).google.accounts.oauth2.initTokenClient({
-          client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
-          scope: 'https://www.googleapis.com/auth/calendar',
-          callback: (response: TokenResponse) => {
-            if (response.error) {
-              console.error('Google OAuth Error:', response.error);
-              done(false);
-              return;
-            }
-            if (response.access_token) {
-              this.accessToken = response.access_token;
-              done(true);
-            } else {
-              done(false);
-            }
-          },
-          error_callback: (error: any) => {
-            console.error('Google OAuth popup error:', error);
-            done(false);
-          },
-        });
-
-        try {
-          tokenClient.requestAccessToken({ prompt: '' });
-        } catch (e) {
-          console.error('Failed to request access token:', e);
-          done(false);
-        }
-      });
-    } catch (error) {
-      console.error('Google sign in error:', error);
-      return false;
+  /**
+   * Redirect the user to Google's OAuth consent page.
+   * After consent, Google redirects back with the token in the URL hash.
+   */
+  signIn(): void {
+    const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+    if (!clientId) {
+      console.error('Missing NEXT_PUBLIC_GOOGLE_CLIENT_ID');
+      return;
     }
+
+    const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+    authUrl.searchParams.set('client_id', clientId);
+    authUrl.searchParams.set('redirect_uri', window.location.origin);
+    authUrl.searchParams.set('response_type', 'token');
+    authUrl.searchParams.set('scope', 'https://www.googleapis.com/auth/calendar');
+    authUrl.searchParams.set('state', 'google_calendar_auth');
+    authUrl.searchParams.set('include_granted_scopes', 'true');
+
+    window.location.href = authUrl.toString();
   }
 
   async signOut() {
@@ -285,12 +236,7 @@ export class GoogleCalendarService {
       return [];
     }
   }
-  async trySilentSignIn(email?: string): Promise<boolean> {
-    // Silent sign-in with the token client flow always requires a popup,
-    // which browsers block without a user gesture. This method is kept for
-    // potential future use but should not be called from useEffect/mount.
-    return false;
-  }
+
 
   async insertEvent(calendarId: string, event: Partial<GoogleCalendarEvent>): Promise<GoogleCalendarEvent | null> {
     if (!this.accessToken) throw new Error('Not signed in');
