@@ -111,6 +111,15 @@ export class GoogleCalendarService {
           }
         };
 
+        // Override error_callback so popup failures resolve the promise immediately
+        this.tokenClient.error_callback = (error: any) => {
+          if (isResolved) return;
+          clearTimeout(timeoutId);
+          isResolved = true;
+          console.error('Google OAuth popup error:', error);
+          resolve(false);
+        };
+
         // Request access token
         try {
           this.tokenClient.requestAccessToken({ prompt: 'consent' });
@@ -315,6 +324,12 @@ export class GoogleCalendarService {
             });
             resolve(false);
           }
+        };
+
+        // Handle popup/silent errors
+        this.tokenClient.error_callback = (error: any) => {
+          console.log('Silent sign-in not available:', error?.type || error);
+          resolve(false);
         };
 
         // Attempt silent sign-in

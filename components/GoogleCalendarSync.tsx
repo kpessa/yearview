@@ -89,14 +89,13 @@ export default function GoogleCalendarSync({
   const [selectedCalendarIds, setSelectedCalendarIds] = useState<string[]>([]);
 
   useEffect(() => {
-    // Try silent sign-in on mount
+    // Pre-initialize the Google Identity Services script
+    // Note: We don't attempt silent sign-in because the token client flow
+    // always requires a popup, which browsers block without a user gesture.
     const initAuth = async () => {
       await googleCalendarService.init();
       if (googleCalendarService.isSignedIn()) {
         setIsSignedIn(true);
-      } else {
-        const success = await googleCalendarService.trySilentSignIn(userEmail);
-        setIsSignedIn(success);
       }
     };
     initAuth();
