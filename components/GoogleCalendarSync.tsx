@@ -94,7 +94,20 @@ export default function GoogleCalendarSync({
     } else if (googleCalendarService.isSignedIn()) {
       setIsSignedIn(true);
     }
-  }, []);
+
+    // Check for auth errors from the API route
+    const params = new URLSearchParams(window.location.search);
+    const authError = params.get('google_auth_error');
+    if (authError) {
+      showToast('Failed to connect to Google Calendar. Please try again.', 'error');
+      // Clean error from URL
+      params.delete('google_auth_error');
+      const cleanUrl = params.toString()
+        ? `${window.location.pathname}?${params.toString()}`
+        : window.location.pathname;
+      window.history.replaceState(null, '', cleanUrl);
+    }
+  }, [showToast]);
 
   useEffect(() => {
     if (!isSignedIn) {

@@ -51,7 +51,8 @@ export class GoogleCalendarService {
 
   /**
    * Redirect the user to Google's OAuth consent page.
-   * After consent, Google redirects back with the token in the URL hash.
+   * Uses authorization code flow — Google redirects to our API route,
+   * which exchanges the code for a token and redirects back with it.
    */
   signIn(): void {
     const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
@@ -60,12 +61,15 @@ export class GoogleCalendarService {
       return;
     }
 
+    const redirectUri = `${window.location.origin}/api/google/callback`;
+
     const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
     authUrl.searchParams.set('client_id', clientId);
-    authUrl.searchParams.set('redirect_uri', window.location.origin);
-    authUrl.searchParams.set('response_type', 'token');
+    authUrl.searchParams.set('redirect_uri', redirectUri);
+    authUrl.searchParams.set('response_type', 'code');
     authUrl.searchParams.set('scope', 'https://www.googleapis.com/auth/calendar');
     authUrl.searchParams.set('state', 'google_calendar_auth');
+    authUrl.searchParams.set('access_type', 'online');
     authUrl.searchParams.set('include_granted_scopes', 'true');
 
     window.location.href = authUrl.toString();
